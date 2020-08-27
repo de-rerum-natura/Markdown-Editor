@@ -13,6 +13,7 @@ class TestText(Enhanced_Text):
     def changes_occured(self, event=None):
         print(f"Changes in range {self.last_change_range}")
         print(self.convert_index_to_canonical(self.last_change_range[0]))
+
 if __name__ == '__main__':
     c = tk.Tk()
     t = TestText(c)

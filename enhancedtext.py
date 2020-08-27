@@ -1,6 +1,6 @@
 from timeit import default_timer as timer
 import tkinter as tk
-tk.wantobjects=False
+#tk.wantobjects=False
 
 class Enhanced_Text(tk.Text):
     '''A text widget that doesn't permit inserts and deletes in regions tagged with "readonly"'''
@@ -98,8 +98,10 @@ class Enhanced_Text(tk.Text):
 
     def before_change(self, event=None):
         #if there is a selection we need to store its range.
-        if self.tag_ranges("sel"):
-            self.last_change_range = list(self.tag_ranges("sel"))
+        t_range = self.tag_ranges("sel")
+        if t_range:
+            #str() needs to be used to convert the return items from tag_ranges into string
+            self.last_change_range = [str(tag_pos) for tag_pos in list(t_range)]
             self.selection_present=True
         else:
         #if there is no selection save the insert mark before the insert or delete event
@@ -110,10 +112,9 @@ class Enhanced_Text(tk.Text):
         #if there was a selection use it. Otherwise store insert mark after insertion/deletion event
         if not self.selection_present:
             self.last_change_range[1] = self.index(tk.INSERT)
-
-        #if the range is not ordered (e.g. delete pressed), order it to guarantee smallest index first
-        if not self.range_ordered(self.last_change_range):
-            self.last_change_range.reverse()
+            #if the range is not ordered (e.g. delete pressed), order it to guarantee smallest index first
+            if not self.range_ordered(self.last_change_range):
+                self.last_change_range.reverse()
 
         self.event_generate("<<TextChanged>>")
 

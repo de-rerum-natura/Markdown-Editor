@@ -49,8 +49,8 @@ class PPEditor(Enhanced_Text):
         super().bind_events()
         self.bind('<Control-h>', self.highlight)
         self.bind('<Control-p>', self.print_position)
-        self.bind('<Key>', self.key_pressed)
-        self.bind('<<Modified>>', self.mod)
+        #self.bind('<Key>', self.key_pressed)
+        self.bind('<<TextChanged>>', self.mod)
         self.bind('<space>', self.space_pressed)
         self.bind('<Return>', self.return_pressed)
         #self.bind('<KeyRelease-Return>', self.return_released)
@@ -59,16 +59,9 @@ class PPEditor(Enhanced_Text):
     def print_position(self, event=None):
         print(self.tag_names(self.index(tk.INSERT)))
 
-    def show_position(self, index):
-        return self.tag_names(index)
-
-
     def highlight(self, event=None):
         self.highlighter.highlight()
         return "break"
-
-    def key_pressed(self, event=None):
-        self.mark_set("sentinel", tk.INSERT)
 
 
     def space_pressed(self, event=None):
@@ -78,74 +71,52 @@ class PPEditor(Enhanced_Text):
 
     def return_pressed(self, event=None):
         #if we just inserted an auto inserted text and Return is pressed immediately afterwards, delete the text again
-        if 'auto_inserted' in self.tag_names(tk.INSERT + "-1c"):
-            self.delete(self.index(tk.INSERT) + " linestart", self.index(tk.INSERT) + " lineend")
-            return "break"
+        #if 'auto_inserted' in self.tag_names(tk.INSERT + "-1c"):
+        #    self.delete(self.index(tk.INSERT) + " linestart", self.index(tk.INSERT) + " lineend")
+        #    return "break"
         # re-parse the whole document and tell the world that the editor was parsed
-        self.ret_active=True
+        #self.ret_active=True
         self.parser.re_parse(self.get('1.0', 'end'))
         self.event_generate("<<PPEditorReparsed>>")
 
 
     def mod(self, event=None):
-        #a modification calls this function via the <<Modified>> event. the flag adressed by edit_modified() is set to True
-        # The modification is handled by this function and the modified flag is set back to False by edit_modified(False)
-        #problem is that the set back to False also triggers a modification event with flag set to False
-        #so we have to check at the beginning whether the flag is True or False, otherwise we get two events for a keystroke
 
-        if self.edit_modified():
-            print("modified event at: {}, flag is {}".format(self.index(tk.INSERT), self.edit_modified()))
+        if self.parser.tree != None:
 
-            if self.parser.tree != None:
+            #do editing if required
+            #if self.ret_active:
+            #    print("caugt return")
+                #todo index not correct
+            #    print(self.tag_nextrange('list_paragraph', e + " - 1line linestart", e + " - 1line lineend"))
+            #    if self.tag_nextrange('list_paragraph', e + " - 1line linestart", e + " - 1line lineend"):
+            #        self.insert(e,"* ", "auto_inserted")
+            #        e = self.index(tk.INSERT)
+            #    self.ret_active=False
 
-                s = self.index("sentinel")
-                e = self.index(tk.INSERT)
-                print("Tk StartIndex: {}, EndIndex: {}".format(s,e))
+            start_index = my_utils.convert_point_tk_to_ts(self.last_change_range[0])
+            end_index = my_utils.convert_point_tk_to_ts(self.last_change_range[1])
 
-                #do editing if required
-                if self.ret_active:
-                    print("caugt return")
-                    #todo index not correct
-                    print(self.tag_nextrange('list_paragraph', e + " - 1line linestart", e + " - 1line lineend"))
-                    if self.tag_nextrange('list_paragraph', e + " - 1line linestart", e + " - 1line lineend"):
-                        self.insert(e,"* ", "auto_inserted")
-                        e = self.index(tk.INSERT)
-                    self.ret_active=False
+            # start byte is based on the tk start index, end byte on the current index
+            #todo maybe make this more efficient by reducing need to calculate end_byte.
+            #if start_index[0]==current_index[0] then start_byte + (current_index[1]-start_index[1])?
+            #may be faster?
+            start_byte = self.convert_index_to_canonical(self.last_change_range[0])
+            end_byte = self.convert_index_to_canonical(self.last_change_range[1])
 
-                # tk start index was regisered at key press before tk text widget processes text.
-                # make sure that it is smaller than the insert position (required for ts). otherwise switch
+            print("Inserting into tree: startIndex: {}, endIndex: {}, start byte: {}, end byte: {}".format(start_index, end_index,
+                                                                                      start_byte, end_byte))
 
-                if self.compare(s, "<=", e):
-                    start_index = my_utils.convert_point_tk_to_ts(s)
-                    end_index = my_utils.convert_point_tk_to_ts(e)
-                else:
-                    start_index = my_utils.convert_point_tk_to_ts(e)
-                    end_index = my_utils.convert_point_tk_to_ts(s)
+            # edit the tree sitter tree held in the parser
+            self.parser.edit_tree(
+                start_byte=start_byte,
+                old_end_byte=start_byte,
+                new_end_byte=end_byte,
+                start_point=start_index,
+                old_end_point=start_index,
+                new_end_point=end_index,
+            )
 
-                # start byte is based on the tk start index, end byte on the current index
-                #todo maybe make this more efficient by reducing need to calculate end_byte.
-                #if start_index[0]==current_index[0] then start_byte + (current_index[1]-start_index[1])?
-                #may be faster?
-                start_byte = self.convert_index_to_canonical(self.index("sentinel"))
-                end_byte = self.convert_index_to_canonical((self.index(tk.INSERT)))
-
-                print("StartIndex: {}, EndIndex: {}, start byte: {}, end byte: {}".format(start_index, end_index,
-                                                                                          start_byte, end_byte))
-
-                # edit the tree sitter tree held in the parser
-                self.parser.edit_tree(
-                    start_byte=start_byte,
-                    old_end_byte=start_byte,
-                    new_end_byte=end_byte,
-                    start_point=start_index,
-                    old_end_point=start_index,
-                    new_end_point=end_index,
-                )
-
-            #set the sentinel to the new tk.INSERT position
-            self.mark_set("sentinel", tk.INSERT)
-            #set the modified flag to false
-            self.edit_modified(False)
 
     def display_file_contents(self, filepath):
         #add the parsing and highlighting of the document
