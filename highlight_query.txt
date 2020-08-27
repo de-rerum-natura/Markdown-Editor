@@ -1,0 +1,6 @@
+(atx_heading (atx_heading_marker) @atx_heading_marker)
+(atx_heading (atx_heading_marker) (heading_content) @heading_content)
+((tight_list) @tight_list)
+(list_item (list_marker) @list_marker)
+((link) @link)
+((strong_emphasis) @strong_emphasis)

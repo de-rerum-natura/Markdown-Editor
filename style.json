@@ -1,0 +1,41 @@
+[
+[
+  "(document (paragraph) @paragraph)",
+  "(atx_heading (atx_heading_marker) @atx_heading_marker (*(text)) @heading_content)",
+  "(tight_list (list_item (list_marker) @lonely_list_marker))",
+  "(tight_list (list_item (list_marker) @list_marker (*(text)) @list_paragraph))",
+  "(loose_list (list_item (list_marker) @list_marker (*(text)) @list_paragraph))",
+  "(link (link_text (text) @link_text) (link_destination (text) @link_destination))",
+  "(link (link_text (text) @link_text) (link_destination (text) @link_destination) (link_title (text)) @link_title)",
+  "(uri_autolink (text) @link_destination)",
+  "((strong_emphasis) @strong_emphasis)",
+  "((block_quote) @block_quote)",
+  "(block_quote (block_quote (*(text))) @block_block_quote)",
+  "((emphasis) @emphasis)",
+  "((code_span) @code_span)",
+  "((indented_code_block) @indented_code_block)"
+],
+[
+  ["editor_style", { "padx" : 100, "font" : ["Times New Roman", "14"], "foreground" : "gray36", "background" : "white", "borderwidth" : 0, "relief" :  "flat"}],
+  ["standard", {"lmargin1" :  "1c", "lmargin2" : "1c"}],
+  ["paragraph", {"font" : ["Times New Roman", "14"], "foreground" : "gray36", "background" : "white"}],
+  ["emphasis", {"font" : ["Times New Roman", "14", "italic"]}],
+  ["strong_emphasis", {"font" : ["Times New Roman", "14", "bold"]}],
+  ["atx_heading_marker", {"foreground" : "blue"}],
+  ["heading_content_1", {"font" : ["Times New Roman", "28", "bold"], "foreground" :  "black"}],
+  ["heading_content_2", {"font" : ["Times New Roman", "20", "bold"], "foreground" :  "black"}],
+  ["heading_content_3", {"font" : ["Times New Roman", "18", "bold"], "foreground" :  "black"}],
+  ["link_text", {"foreground" :  "blue"}],
+  ["link_destination", {"foreground" :  "blue", "underline" : 1}],
+  ["link_title", {"foreground" :  "green"}],
+  ["lonely_list_marker", {"foreground" : "gray20", "lmargin1" :  "1c", "lmargin2" : "1c"}],
+  ["list_marker", {"foreground" : "blue", "lmargin1" :  "1c", "lmargin2" : "1c"}],
+  ["list_paragraph", {"lmargin1" :  "2c", "lmargin2" : "2c"}],
+  ["block_quote", {"lmargin1" :  "2c", "lmargin2" : "2c"}],
+  ["block_block_quote", {"foreground" : "red", "lmargin1" :  "3c", "lmargin2" : "3c"}],
+  ["code_span", {"font" :  ["Courier New", "14"]}],
+  ["indented_code_block", {"font" :  ["Courier New", "14"]}]
+
+
+]
+]
