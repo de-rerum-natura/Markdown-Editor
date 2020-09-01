@@ -6,6 +6,7 @@ Created on Wed Jul 29 15:12:38 2020
 """
 import tkinter as tk
 import tkinter.ttk as ttk
+import re
 from PPParser import PPParser
 from PPHighlighter import PPHighlighter
 import PPUtils as my_utils
@@ -42,19 +43,68 @@ class PPEditor(Enhanced_Text):
         #Tags
         self.tag_configure("auto_inserted", foreground='grey20')
 
-        #Flags
-        self.ret_active=False
+        #Whitespace characters:
+        self.INLINECHARS = {"*", "`"}
+        self.WHITESPACE = {" ", "\t"}
+        self.BRACKETS = {"[" : "]", "(" : ")", "{" : "}", '"' : '"'}
+
+        #regex for list marker
+        self._list_marker_re = re.compile(r'[ \t]*[*-+][ \t]*')
 
     def bind_events(self):
         super().bind_events()
         self.bind('<Control-h>', self.highlight)
         self.bind('<Control-p>', self.print_position)
-        #self.bind('<Key>', self.key_pressed)
+        self.bind('<Key>', self.key_pressed)
         self.bind('<<TextChanged>>', self.mod)
         self.bind('<space>', self.space_pressed)
         self.bind('<Return>', self.return_pressed)
+        self.bind('<Control-w>', self.select_word)
+        self.bind('<Control-e>', self.insert_emphasis)
         #self.bind('<KeyRelease-Return>', self.return_released)
 
+    def key_pressed(self, event=None):
+        if event.char in self.INLINECHARS:
+            before = self.get(tk.INSERT + " -1c", tk.INSERT)
+            after = self.get(tk.INSERT, tk.INSERT + " +1c")
+            if before in self.WHITESPACE:
+                if after in self.WHITESPACE:
+                    self.insert(tk.INSERT, event.char*2)
+                    self.mark_set(tk.INSERT, tk.INSERT + " -1c")
+                    return "break"
+            if before == event.char:
+                if self.get(tk.INSERT + " -2c", tk.INSERT + " -1c") == event.char:
+                    #self.insert(tk.INSERT, event.char)
+                    return "break"
+                if after == event.char:
+                    self.insert(tk.INSERT, event.char*2)
+                    self.mark_set(tk.INSERT, tk.INSERT + " -1c")
+                    return "break"
+
+        if event.char in self.BRACKETS:
+            self.insert(tk.INSERT, event.char + self.BRACKETS[event.char])
+            self.mark_set(tk.INSERT, tk.INSERT + " -1c")
+            return "break"
+
+
+    def insert_emphasis(self, event=None):
+        first, last = self.get_selection_indices()
+        selection=False
+        if first and last:
+            last = last + " +1c"
+            selection=True
+        else:
+            first = tk.INSERT + " wordstart"
+            last = tk.INSERT + " wordend"
+
+        if self.get(first + " -2c", first) != "**":
+            self.insert(first, "*")
+            self.insert(last, "*")
+            self.re_parse()
+            if selection:
+                self.tag_add(tk.SEL, first + " +1c", last)
+                self.mark_set(tk.INSERT, last)
+        return "break"
 
     def print_position(self, event=None):
         print(self.tag_names(self.index(tk.INSERT)))
@@ -63,36 +113,58 @@ class PPEditor(Enhanced_Text):
         self.highlighter.highlight()
         return "break"
 
+    def re_parse(self):
+        self.parser.re_parse(self.get('1.0', 'end'))
+        self.event_generate("<<PPEditorReparsed>>")
 
     def space_pressed(self, event=None):
-        #re-parse the whole document and tell the world that the editor was parsed
-        self.parser.re_parse(self.get('1.0', 'end'))
-        self.event_generate("<<PPEditorReparsed>>")
+        #delete selection, if present
+        first, last = self.get_selection_indices()
+        if first and last:
+            self.delete(first, last)
+            self.mark_set("insert", first)
+        #insert space
+        self.insert(tk.INSERT, " ")
+        #re-parse the document
+        self.re_parse()
+        return "break"
+
 
     def return_pressed(self, event=None):
+        #delete selection, if present
+        first, last = self.get_selection_indices()
+        if first and last:
+            self.delete(first, last)
+            self.mark_set("insert", first)
+
         #if we just inserted an auto inserted text and Return is pressed immediately afterwards, delete the text again
-        #if 'auto_inserted' in self.tag_names(tk.INSERT + "-1c"):
-        #    self.delete(self.index(tk.INSERT) + " linestart", self.index(tk.INSERT) + " lineend")
-        #    return "break"
-        # re-parse the whole document and tell the world that the editor was parsed
-        #self.ret_active=True
-        self.parser.re_parse(self.get('1.0', 'end'))
-        self.event_generate("<<PPEditorReparsed>>")
+        if 'auto_inserted' in self.tag_names(tk.INSERT + "-1c"):
+            self.tag_remove('auto_inserted', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend")
+            self.delete(tk.INSERT + " linestart", tk.INSERT + " lineend")
+            return "break"
+
+        #if the line contains a list_paragraph, search for the previous list marker and insert it, mark it auto_inserted
+        if self.tag_nextrange('list_paragraph', tk.INSERT + " linestart", tk.INSERT + " lineend"):
+            i1, i2 = self.tag_prevrange('list_marker',tk.INSERT, '1.0')
+            list_char = self.get(i1, i2)
+            self.insert(tk.INSERT, f"\n{list_char} ", "auto_inserted")
+            return "break"
+
+        #if we are in an indented code block, insert the indentation of the current line in the next line
+        if self.get_line_indent(tk.INSERT) >= 4:
+            no_of_indent_chars = self.get_line_indent(tk.INSERT)-1
+            self.insert(tk.INSERT, f"\n{' '*no_of_indent_chars} ", "auto_inserted")
+            return "break"
+
+        #default. insert a return and reparse the document
+        self.insert(tk.INSERT, "\n")
+        self.re_parse()
+        return "break"
 
 
     def mod(self, event=None):
 
         if self.parser.tree != None:
-
-            #do editing if required
-            #if self.ret_active:
-            #    print("caugt return")
-                #todo index not correct
-            #    print(self.tag_nextrange('list_paragraph', e + " - 1line linestart", e + " - 1line lineend"))
-            #    if self.tag_nextrange('list_paragraph', e + " - 1line linestart", e + " - 1line lineend"):
-            #        self.insert(e,"* ", "auto_inserted")
-            #        e = self.index(tk.INSERT)
-            #    self.ret_active=False
 
             start_index = my_utils.convert_point_tk_to_ts(self.last_change_range[0])
             end_index = my_utils.convert_point_tk_to_ts(self.last_change_range[1])

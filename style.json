@@ -28,13 +28,13 @@
   ["link_text", {"foreground" :  "blue"}],
   ["link_destination", {"foreground" :  "blue", "underline" : 1}],
   ["link_title", {"foreground" :  "green"}],
-  ["lonely_list_marker", {"foreground" : "gray20", "lmargin1" :  "1c", "lmargin2" : "1c"}],
-  ["list_marker", {"foreground" : "blue", "lmargin1" :  "1c", "lmargin2" : "1c"}],
-  ["list_paragraph", {"lmargin1" :  "2c", "lmargin2" : "2c"}],
+  ["lonely_list_marker", {"foreground" : "gray20"}],
+  ["list_marker", {"foreground" : "blue"}],
+  ["list_paragraph", {"lmargin2" : "1c"}],
   ["block_quote", {"lmargin1" :  "2c", "lmargin2" : "2c"}],
   ["block_block_quote", {"foreground" : "red", "lmargin1" :  "3c", "lmargin2" : "3c"}],
-  ["code_span", {"font" :  ["Courier New", "14"]}],
-  ["indented_code_block", {"font" :  ["Courier New", "14"]}]
+  ["code_span", {"background" :  "gray95", "borderwidth" :  1, "relief" :  "solid"}],
+  ["indented_code_block", {"background" :  "pale turquoise"}]
 
 
 ]

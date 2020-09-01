@@ -1,6 +1,6 @@
 from timeit import default_timer as timer
 import tkinter as tk
-#tk.wantobjects=False
+import re
 
 class Enhanced_Text(tk.Text):
     '''A text widget that doesn't permit inserts and deletes in regions tagged with "readonly"'''
@@ -79,10 +79,10 @@ class Enhanced_Text(tk.Text):
         self.find_match_index = None
         self.find_search_starting_index = 1.0
 
-        #The sentinel for tracking inserts
+        #properties
         self.last_change_range = ["1.0",tk.END]
         self.selection_present=False
-
+        self._indent_re = re.compile(r'[ \t]*')
         #bind the events
         self.bind_events()
 
@@ -133,6 +133,22 @@ class Enhanced_Text(tk.Text):
             return 0
         else:
             return count[0]
+
+    def select_word(self, event=None):
+        self.tag_add("sel", tk.INSERT + " wordstart", tk.INSERT + " wordend")
+        return "break"
+
+    def line_in_index(self, index):
+        return int(float(index))
+
+    def get_selection_indices(self):
+        try:
+            first = self.index("sel.first")
+            last = self.index("sel.last")
+            return first, last
+        except tk.TclError:
+            return None, None
+
 
     def find(self, text_to_find):
         length = tk.IntVar()
@@ -200,7 +216,6 @@ class Enhanced_Text(tk.Text):
 
         return "break"
 
-
     def display_file_contents(self, filepath):
         with open(filepath, 'r') as file:
             self.delete(1.0, tk.END)
@@ -216,3 +231,8 @@ class Enhanced_Text(tk.Text):
         if left[1] > right[1]:
             return False
         return True
+
+    def get_line_indent(self, mark):
+        line = self.get(mark + " linestart", mark)
+        match = self._indent_re.match(line)
+        return match.end()
