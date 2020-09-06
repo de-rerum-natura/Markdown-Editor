@@ -141,6 +141,10 @@ class Enhanced_Text(tk.Text):
     def line_in_index(self, index):
         return int(float(index))
 
+    def col_in_index(self, mark):
+        index = self.index(mark)
+        return int(index.split('.')[1])
+
     def get_selection_indices(self):
         try:
             first = self.index("sel.first")

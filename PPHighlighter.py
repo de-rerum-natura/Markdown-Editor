@@ -12,10 +12,10 @@ class PPHighlighter():
 
         self.outline = []
 
-        self.extension_set = {"heading_content_1", "heading_content_2", "heading_content_3", "list_paragraph", "paragraph", "block_quote", "block_block_quote", "indented_code_block" }
-
+        self.lineend_set = {"heading_content_1", "heading_content_2", "heading_content_3", "thight_list", "list_paragraph", "paragraph", "block_quote", "block_block_quote", "indented_code_block", "fenced_code_block" }
+        self.linestart_set = {"indented_code_block", "fenced_code_block"}
     def highlight(self):
-        print("highlighting")
+        #print("highlighting")
         self.outline.clear()
 
         #remove all tags
@@ -60,7 +60,9 @@ class PPHighlighter():
 
                 start_position = PPUtils.convert_point_ts_to_tk(item[0].start_point)
                 end_position = PPUtils.convert_point_ts_to_tk(item[0].end_point)
-                if tag_name in self.extension_set:
-                    end_position = end_position + " lineend"
+                if tag_name in self.lineend_set:
+                    end_position = end_position + " lineend + 1c"
+                if tag_name in self.linestart_set:
+                    start_position = start_position + " linestart"
 
                 self.editor.tag_add(tag_name, start_position, end_position)

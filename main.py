@@ -22,7 +22,7 @@ class MainWindow(tk.Tk):
         self.configurations = self.load_config()
 
         self.title('Peters Editor')
-        self.geometry('1000x500')
+        #self.geometry('1000x500')
 
         self.foreground = 'black'
         self.background = 'lightgrey'
@@ -32,14 +32,9 @@ class MainWindow(tk.Tk):
         self.open_file = ''
         self.right_frame_visible = True
 
-        # define frames
-        self.right_frame = tk.Frame(self)
-        self.left_frame = tk.Frame(self)
-        self.bottom_frame = tk.Frame(self.left_frame)
-
         # define editor area and scrollbars
-        self.editor = PPEditor(self.left_frame, 'style.json')
-        self.editor_vsb = ttk.Scrollbar(self.left_frame, orient='vertical', command=self.editor.yview)
+        self.editor = PPEditor(self, 'style.json')
+        self.editor_vsb = ttk.Scrollbar(self, orient='vertical', command=self.editor.yview)
         #self.editor_hsb = ttk.Scrollbar(self.left_frame, orient='horizontal', command=self.editor.xview)
         self.editor.configure(yscrollcommand=self.editor_vsb.set)
 
@@ -54,18 +49,23 @@ class MainWindow(tk.Tk):
         #self.hsb['command'] = self.file_browser.xview
 
         #define tree brower
-        self.vsb = ttk.Scrollbar(self.right_frame, orient="vertical")
-        self.hsb = ttk.Scrollbar(self.right_frame, orient="horizontal")
-        self.tree_browser = PPTreeBrowser(self.right_frame, yscrollcommand=self.vsb.set, xscrollcommand=self.hsb.set)
+        self.vsb = ttk.Scrollbar(self, orient="vertical")
+        self.hsb = ttk.Scrollbar(self, orient="horizontal")
+        self.tree_browser = PPTreeBrowser(self, yscrollcommand=self.vsb.set, xscrollcommand=self.hsb.set)
         self.vsb['command'] = self.tree_browser.yview
         self.hsb['command'] = self.tree_browser.xview
 
         #define the outline browser
-        self.ovsb = ttk.Scrollbar(self.right_frame, orient="vertical")
-        self.ohsb = ttk.Scrollbar(self.right_frame, orient="horizontal")
-        self.outline_browser = PPOutlineBrowser(self.right_frame, self.editor, yscrollcommand=self.vsb.set, xscrollcommand=self.hsb.set)
+        self.ovsb = ttk.Scrollbar(self, orient="vertical")
+        self.ohsb = ttk.Scrollbar(self, orient="horizontal")
+        self.outline_browser = PPOutlineBrowser(self, self.editor, yscrollcommand=self.vsb.set, xscrollcommand=self.hsb.set)
         self.ovsb['command'] = self.outline_browser.yview
         self.ohsb['command'] = self.outline_browser.xview
+
+        #define the label bar
+        self.status_bar_var = tk.StringVar()
+        self.status_bar = tk.Label(self, textvariable=self.status_bar_var, anchor = "w", relief=tk.RAISED)
+        self.status_bar_var.set("Test")
 
         # define menu
         self.menu = tk.Menu(self, bg=self.background, fg=self.foreground)
@@ -82,18 +82,19 @@ class MainWindow(tk.Tk):
         self.all_menus.append(self.right_click_menu)
 
         # pack editor area
-        self.left_frame.grid(row=0, column=0, sticky=tk.W+tk.E+tk.N+tk.S)
         #self.line_numbers.pack(side=tk.LEFT, fill=tk.Y)
-        self.editor_vsb.grid(row=0, column=1, sticky=tk.N+tk.S)
         #self.editor_hsb.pack(side=tk.BOTTOM, fill=tk.X)
-        self.editor.grid(row=0, column=0, sticky=tk.W+tk.E+tk.N+tk.S)
+        self.editor.grid(row=0, column=0, sticky="nsew")
+        self.editor_vsb.grid(row=0, column=1, sticky="ns")
+        self.editor.set_style()
 
         # pack browser / tree browser area
-        self.right_frame.grid(row=0, column=1, sticky=tk.W+tk.E+tk.N+tk.S)
-        #self.vsb.grid(row=0, column=1, sticky=tk.N+tk.S)
-        #self.hsb.grid(row=1, column=0, sticky=tk.W+tk.E)
-        #self.tree_browser.grid(row=0, column=0)
-        self.outline_browser.grid(row=0, column=0)
+        self.tree_browser.grid(row=0, column=2, sticky='nsew')
+        self.vsb.grid(row=0, column=3, sticky='ns')
+        self.hsb.grid(row=1, column=2, sticky='ew')
+
+        self.status_bar.grid(row=2, column=0, sticky='ew')
+
 
         self.bind_events()
 

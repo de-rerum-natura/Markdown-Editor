@@ -1,6 +1,7 @@
 
 
 from tree_sitter import *
+from PPUtils import *
 
 class PPParser:
     def __init__(self):
@@ -35,7 +36,7 @@ class PPParser:
         )
 
     def re_parse(self, parse_string):
-        print("re-parse")
+        #print("re-parse")
         old_tree = self.tree
         self.tree = self.parser.parse(bytes(parse_string, "utf8"), old_tree)
 
@@ -68,16 +69,38 @@ class PPParser:
             end_points.append(item.end_point)
 
 
-    def recursive_tree_walk_cursor(self, node):
+    def _recursive_tree_walk_cursor(self, node):
         i=0
         cursor = node.walk()
         i =+1
         if cursor.goto_first_child():
-           i = i + self.recursive_tree_walk_cursor(cursor.node)
+           i = i + self._recursive_tree_walk_cursor(cursor.node)
            while cursor.goto_next_sibling():
-               i = i + self.recursive_tree_walk_cursor(cursor.node)
+               i = i + self._recursive_tree_walk_cursor(cursor.node)
         return i
 
     def count_subnodes(self, node):
         #print("count subnotes")
-        return self.recursive_tree_walk_cursor(node)
+        return self._recursive_tree_walk_cursor(node)
+
+    def _recursive_find_position(self, node, position):
+        result = []
+        cursor = node.walk()
+        if cursor.goto_first_child():
+            if ts_point_in_range(cursor.node.start_point, cursor.node.end_point, position):
+                #print(f"found in {cursor.node.type}, start: {cursor.node.start_point}, end: {cursor.node.end_point}, position: {position}")
+                result.append((cursor.node.type, cursor.node.start_point, cursor.node.end_point))
+                result = result + self._recursive_find_position(cursor.node, position)
+        while cursor.goto_next_sibling():
+            if ts_point_in_range(cursor.node.start_point, cursor.node.end_point, position):
+                #print(f"found in {cursor.node.type}, start: {cursor.node.start_point}, end: {cursor.node.end_point}, position: {position}")
+                result.append((cursor.node.type, cursor.node.start_point, cursor.node.end_point))
+                result = result + self._recursive_find_position(cursor.node, position)
+        return result
+
+
+
+    def find_position(self, index):
+        #returns a list of tuples (String: type, (int, int): start position, (int, int): end position
+        position = convert_point_tk_to_ts(index)
+        return self._recursive_find_position(self.tree.root_node, position)

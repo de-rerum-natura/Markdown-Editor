@@ -22,3 +22,13 @@ def ts_points_find_larger (point1, point2):
             return point2
         else:
             return None
+
+def ts_point_in_range(start, end, index):
+    if start[0] > index[0] or end[0] < index[0]:
+        return False
+    elif start[0] == index[0] and start[1] > index[1]:
+        return False
+    elif end[0] == index[0] and end[1] < index[1]:
+        return False
+    else:
+        return True
