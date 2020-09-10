@@ -143,6 +143,7 @@ class PPEditor(Enhanced_Text):
                     print("listchar")
                     self.delete(tk.INSERT + " linestart", tk.INSERT)
                     self.insert(tk.INSERT + " linestart", l_char)
+
         #insert space
         self.insert(tk.INSERT, " ")
         #re-parse the document
@@ -157,34 +158,56 @@ class PPEditor(Enhanced_Text):
             self.delete(first, last)
             self.mark_set("insert", first)
 
+        #todo see whether we need to reparse here
+
         #if we just inserted an auto inserted text and Return is pressed immediately afterwards, delete the text again
         if 'auto_inserted_code_block' in self.tag_names(tk.INSERT + "-1c"):
-            self.tag_remove('auto_inserted', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend")
+            self.tag_remove('auto_inserted_code_block', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend")
             self.delete(tk.INSERT + " linestart", tk.INSERT)
             self.insert(tk.INSERT, "\n")
             self.re_parse()
             return "break"
 
-        if 'auto_inserted_list' in self.tag_names(tk.INSERT + "-1c"):
-            self.tag_remove('auto_inserted', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend")
+        if 'auto_inserted_list_bullet' in self.tag_names(tk.INSERT + "-1c"):
+            self.tag_remove('auto_inserted_list_bullet', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend")
             self.delete(tk.INSERT + " linestart", tk.INSERT)
             self.tag_add("list_paragraph", tk.INSERT + " linestart -1c", tk.INSERT + " lineend")
+            self.tag_add("auto_inserted_list_para", tk.INSERT + " linestart -1c", tk.INSERT + " lineend")
+            return "break"
+
+        if 'auto_inserted_list_para' in self.tag_names(tk.INSERT + "-1c"):
+            self.tag_remove('auto_inserted_list_para', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend")
+            self.tag_remove('list_paragraph', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend + 1c")
+            self.insert(tk.INSERT, "\n", "paragraph")
+            return "break"
+
+        if 'auto_inserted_block_quote' in self.tag_names(tk.INSERT + "-1c"):
+            self.delete(tk.INSERT + " linestart", tk.INSERT)
+            self.tag_remove('auto_inserted_block_quote', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend")
+            self.insert(tk.INSERT, "\n", "paragraph")
+            self.tag_remove('block_quote', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend + 1c")
             return "break"
 
         #if the line contains a list_paragraph, search for the previous list marker and insert it, mark it auto_inserted
         if self._is_index_in(self.index(tk.INSERT + " -1c"), "list_item"):
             i1, i2 = self.tag_prevrange('list_marker',tk.INSERT, '1.0')
-            print(f"List maker: {i1}, {i2}")
+            #print(f"List maker: {i1}, {i2}")
             list_char = self.get(i1, i2)
             self.insert(tk.INSERT, "\n")
-            self.insert(tk.INSERT, f"{list_char} ", ("auto_inserted_list", "lonely_list_marker"))
+            self.insert(tk.INSERT, f"{list_char} ", ("auto_inserted_list_bullet", "lonely_list_marker"))
+            return "break"
+
+        #if the line contains a blockquote insert > in the next line
+        if self._is_index_in(self.index(tk.INSERT + " -1c"), "block_quote"):
+            self.insert(tk.INSERT, "\n")
+            self.insert(tk.INSERT, "> ", ("auto_inserted_block_quote", "block_quote"))
             return "break"
 
         #if we are in an indented code block, insert the indentation of the current line in the next line
         if self.get_line_indent(tk.INSERT) >= 4:
             no_of_indent_chars = self.get_line_indent(tk.INSERT)-1
             self.insert(tk.INSERT, "\n")
-            self.insert(tk.INSERT, f"{' '*no_of_indent_chars} ", "auto_inserted_code_block")
+            self.insert(tk.INSERT, f"{' '*no_of_indent_chars} ", ("auto_inserted_code_block", "indented_code_block"))
             return "break"
 
         #default. insert a return and reparse the document
@@ -207,8 +230,8 @@ class PPEditor(Enhanced_Text):
             start_byte = self.convert_index_to_canonical(self.last_change_range[0])
             end_byte = self.convert_index_to_canonical(self.last_change_range[1])
 
-            print("Inserting into tree: startIndex: {}, endIndex: {}, start byte: {}, end byte: {}".format(start_index, end_index,
-                                                                                      start_byte, end_byte))
+            #print("Inserting into tree: startIndex: {}, endIndex: {}, start byte: {}, end byte: {}".format(start_index, end_index,
+            #                                                                          start_byte, end_byte))
 
             # edit the tree sitter tree held in the parser
             self.parser.edit_tree(
@@ -219,7 +242,7 @@ class PPEditor(Enhanced_Text):
                 old_end_point=start_index,
                 new_end_point=end_index,
             )
-
+            #todo in input changed lines does not register the last input line if it is a para
 
     def display_file_contents(self, filepath):
         #add the parsing and highlighting of the document

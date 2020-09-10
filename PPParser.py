@@ -20,6 +20,8 @@ class PPParser:
         self.num_nodes = 0
         self.highlight = False
 
+        self.changed_lines = None
+
 
     def parse(self, parse_string):
         self.tree = self.parser.parse(bytes(parse_string, "utf8"))
@@ -34,6 +36,8 @@ class PPParser:
             old_end_point=old_end_point,
             new_end_point=new_end_point,
         )
+        self.changed_lines = self.get_changed_span()
+        print(f"Changed lines: {self.changed_lines}")
 
     def re_parse(self, parse_string):
         #print("re-parse")
@@ -48,40 +52,59 @@ class PPParser:
         return captures
         # returns list of tuples (Node, "@...")
 
-    def recursiveTreeWalk(self, node):
+    def _recursive_get_changed_nodes(self, node):
         res = []
         if node.has_changes:
             res.append(node)
         if len(node.children) > 0:
             for child in node.children:
-                res = res + self.recursiveTreeWalk(child)
+                res = res + self._recursive_get_changed_nodes(child)
         return res
 
     def get_changed_nodes(self, node):
-        self.changed_nodes = self.recursiveTreeWalk(node)
-
-    def get_changed_span(self, node):
-        result = self.get_changed_nodes(node)
-        start_points = []
-        end_points = []
-        for item in results:
-            start_points.append(item.start_point)
-            end_points.append(item.end_point)
+        self.changed_nodes = self._recursive_get_changed_nodes(node)
 
 
-    def _recursive_tree_walk_cursor(self, node):
+    def _recursive_get_changed_span(self, func, node):
+        result = []
+        cursor = node.walk()
+        if cursor.goto_first_child():
+            func(cursor.node, result)
+        while cursor.goto_next_sibling():
+            func(cursor.node, result)
+        return result
+
+    def get_changed_span(self):
+        def func(node, result):
+            if node.has_changes:
+                if node.type != "document":
+                    result.append(node)
+                result = result + self._recursive_get_changed_span(func, node)
+
+        result = self._recursive_get_changed_span(func, self.tree.root_node)
+
+        if result:
+            lines = []
+            for item in result:
+                lines.extend((item.start_point[0], item.end_point[0]))
+            return (min(lines), max(lines))
+        else:
+            return None
+
+
+    def _recursive_count_subnodes(self, node):
         i=0
         cursor = node.walk()
         i =+1
         if cursor.goto_first_child():
-           i = i + self._recursive_tree_walk_cursor(cursor.node)
+           i = i + self._recursive_count_subnodes(cursor.node)
            while cursor.goto_next_sibling():
-               i = i + self._recursive_tree_walk_cursor(cursor.node)
+               i = i + self._recursive_count_subnodes(cursor.node)
         return i
 
     def count_subnodes(self, node):
         #print("count subnotes")
-        return self._recursive_tree_walk_cursor(node)
+        return self._recursive_count_subnodes(node)
 
     def _recursive_find_position(self, node, position):
         result = []
@@ -98,9 +121,9 @@ class PPParser:
                 result = result + self._recursive_find_position(cursor.node, position)
         return result
 
-
-
     def find_position(self, index):
-        #returns a list of tuples (String: type, (int, int): start position, (int, int): end position
         position = convert_point_tk_to_ts(index)
+        # returns a list of tuples (String: type, (int, int): start position, (int, int): end position
         return self._recursive_find_position(self.tree.root_node, position)
+
+
