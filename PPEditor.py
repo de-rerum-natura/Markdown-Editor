@@ -11,8 +11,9 @@ from PPParser import PPParser
 from PPHighlighter import PPHighlighter
 import PPUtils as my_utils
 from PPStyle import PPStyle
-from enhancedtext import Enhanced_Text
+from enhancedtext import *
 import webbrowser
+from PPExporter import PPExporter
 
 class PPEditor(Enhanced_Text):
     def __init__(self, master, style_path, **kwargs):
@@ -33,6 +34,9 @@ class PPEditor(Enhanced_Text):
         #Highlighter
         self.highlighter = PPHighlighter(self,self.style.queries)
 
+        #Exporter
+        self.exporter = PPExporter()
+
         #Events
         self.bind_events()
 
@@ -41,14 +45,17 @@ class PPEditor(Enhanced_Text):
         self.mark_gravity("sentinel", tk.LEFT)
 
 
-        #Whitespace characters:
+        #special characters:
         self.LISTCHARS = {"*", "-", "+"}
-        self.INLINECHARS = {"*", "`"}
+        self.INLINECHARS = {"*", "_", "`"}
         self.WHITESPACE = {" ", "\n", "\t"}
         self.BRACKETS = {"[" : "]", "(" : ")", "{" : "}", '"' : '"'}
 
         #regex for list marker
         self._list_marker_re = re.compile(r'[ \t]*[*-+][ \t]*')
+
+        #ignore insert
+        self.mod_ignore=False
 
     def set_style(self):
         self.style.apply_style_to(self)
@@ -63,8 +70,17 @@ class PPEditor(Enhanced_Text):
         self.bind('<Return>', self.return_pressed)
         self.bind('<Control-w>', self.select_word)
         self.bind('<Control-e>', self.insert_emphasis)
+        #self.bind('<Control-l>', self.create_line)
+        self.bind('<Control-w>', self.export)
         #self.bind('<KeyRelease-Return>', self.return_released)
+        self.bind("<Configure>", self._on_configure)
 
+    def export(self, event=None):
+        text = self.get('1.0', 'end')
+        self.exporter.export(text, 'docx', 'testfile.docx')
+        print('exported')
+
+        
     def key_pressed(self, event=None):
         if event.char in self.INLINECHARS:
             before = self.get(tk.INSERT + " -1c", tk.INSERT)
@@ -218,7 +234,7 @@ class PPEditor(Enhanced_Text):
 
     def mod(self, event=None):
 
-        if self.parser.tree != None:
+        if self.parser.tree != None and not self.mod_ignore:
 
             start_index = my_utils.convert_point_tk_to_ts(self.last_change_range[0])
             end_index = my_utils.convert_point_tk_to_ts(self.last_change_range[1])
@@ -230,8 +246,8 @@ class PPEditor(Enhanced_Text):
             start_byte = self.convert_index_to_canonical(self.last_change_range[0])
             end_byte = self.convert_index_to_canonical(self.last_change_range[1])
 
-            #print("Inserting into tree: startIndex: {}, endIndex: {}, start byte: {}, end byte: {}".format(start_index, end_index,
-            #                                                                          start_byte, end_byte))
+            print("Inserting into tree: startIndex: {}, endIndex: {}, start byte: {}, end byte: {}".format(start_index, end_index,
+                                                                                      start_byte, end_byte))
 
             # edit the tree sitter tree held in the parser
             self.parser.edit_tree(
@@ -281,5 +297,48 @@ class PPEditor(Enhanced_Text):
             else:
                 webbrowser.open(link_text, new=2, autoraise=True)
 
+    def heading_marker_clicked(self, event=None):
+        index = self.index(f"@{event.x}, {event.y}")
+        print(f"heading marker click at: {index}")
+
+        clicked_heading=None
+        next_heading=None
+        #todo we need a stable data structure to save the outline and be able to set and read elided also between parses
+        for item in self.highlighter.outline:
+            if clicked_heading and clicked_heading.level >= item.level:
+                next_heading = item
+                #todo if no next heading is found then it is end of text
+                break
+            elif self.index_in_range(index, item.marker_start, item.marker_end):
+                clicked_heading = item
+        if clicked_heading and next_heading:
+            if not clicked_heading.elided:
+                self.tag_add("elided", clicked_heading.marker_start + " + 1 displayline",
+                                next_heading.marker_start + " - 1 displayline")
+                clicked_heading.elided=True
+            else:
+                self.tag_remove("elided", clicked_heading.marker_start + " + 1 displayline",
+                                next_heading.marker_start + " - 1 displayline")
+
+            print(f"found: {self.get(clicked_heading.text_start, clicked_heading.text_end)}")
+            print(f"next heading: {self.get(next_heading.text_start, next_heading.text_end)}")
 
 
+    #todo parsing crashes after line insert
+    def create_line(self, index):
+        self.update_idletasks()
+        w_width = self.winfo_width() - self.style.PADDING*2
+        self.mod_ignore=True
+        l = Text_Line(w_width, index + " linestart", height=20, background="white")
+        self.inline_windows.append(l)
+        self.window_create(index + " linestart", window=l)
+        self.tag_add("readonly", index + " linestart", index + " lineend + 1c")
+        self.tag_add("fenced", index + " linestart", index + " lineend + 1c")
+        self.mod_ignore=False
+
+    #todo does not seem to be called
+    def _on_configure(self, event=None):
+        print(f"width: {event.width}")
+        for item in self.inline_windows:
+            if isinstance(item, Text_Line):
+                item.change_width(event.width - self.style.PADDING*2)

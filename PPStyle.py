@@ -15,13 +15,20 @@ class PPStyle():
         #self.editor_style = self.styles.pop(0)[1]
         #self.standard = self.styles.pop(0)[1]
 
+        #editor styles
+        self.PADDING = 100
+        self.FONT = ["Times New Roman", "14"]
+        self.FOREGROUND = 'gray36'
+        self.BACKGROUND = 'white'
+        self.WRAP = 'word'
+
 
     def apply_style_to(self, editor):
-        editor.configure(padx = 100,
-                         font = ["Times New Roman", "14"],
-                         foreground= "gray36",
-                         background= "white",
-                         wrap= "word",
+        editor.configure(padx = self.PADDING,
+                         font = self.FONT,
+                         foreground= self.FOREGROUND,
+                         background= self.BACKGROUND,
+                         wrap= self.WRAP,
                          borderwidth= 0,
                          relief=  "flat")
         self.configure_tags(editor)
@@ -53,6 +60,9 @@ class PPStyle():
         # heading tags
         editor.tag_configure("atx_heading_marker",
                              foreground= "blue")
+        editor.tag_bind("atx_heading_marker", "<Enter>", editor.show_hand_cursor)
+        editor.tag_bind("atx_heading_marker", "<Leave>", editor.show_arrow_cursor)
+        editor.tag_bind("atx_heading_marker", "<Button-1>", editor.heading_marker_clicked)
         editor.tag_configure("heading_content_1",
                              font= ["Times New Roman", "28", "bold"],
                              foreground= "black")
@@ -137,6 +147,9 @@ class PPStyle():
         editor.tag_configure("auto_inserted_list",
                              foreground='gray20',
                              background='gray92')
+
+        #elided text
+        editor.tag_configure("elided", elide=True)
 
 
 #this is for testing only

@@ -2,6 +2,18 @@ from timeit import default_timer as timer
 import tkinter as tk
 import re
 
+class Text_Line(tk.Canvas):
+    def __init__(self, width, index, colour='black', *args, **kwargs):
+        tk.Canvas.__init__(self, borderwidth=0, highlightthickness=0, width=width, *args, **kwargs)
+        self.width = width
+        self.index = index
+        self.colour = colour
+        self.create_line(0,10, width, 10, fill=self.colour)
+
+    def change_width(self, width):
+        self.configure(width=width)
+        self.create_line(0,10,width,10, fill=self.colour)
+
 class Enhanced_Text(tk.Text):
     '''A text widget that doesn't permit inserts and deletes in regions tagged with "readonly"'''
     def __init__(self, *args, **kwargs):
@@ -11,57 +23,84 @@ class Enhanced_Text(tk.Text):
         widget = str(self)
 
         WIDGET_PROXY = '''
-                if {{[llength [info commands widget_proxy]] == 0}} {{
-                    # Tcl code to implement a text widget proxy that disallows
-                    # insertions and deletions in regions marked with "readonly"
-                    proc widget_proxy {{actual_widget args}} {{
-                        set command [lindex $args 0]
-                        set args [lrange $args 1 end]
-                        if {{$command == "insert"}} {{
-                            set index [lindex $args 0]
-                            if [_is_readonly $actual_widget $index "$index+1c"] {{
-                                bell
-                                return ""
-                            }}
-                            event generate {w_} <<BeforeTextChange>>
-                            $actual_widget $command {{*}}$args
-                            event generate {w_} <<AfterTextChange>>
-                        }} elseif {{$command == "delete"}} {{
-                            foreach {{index1 index2}} $args {{
-                                if {{[_is_readonly $actual_widget $index1 $index2]}} {{
-                                    bell
-                                    return ""
-                                }}
-                            }}
-                            event generate {w_} <<BeforeTextChange>>
-                            $actual_widget $command {{*}}$args
-                            event generate {w_} <<AfterTextChange>>
-                        }} else {{
-                            $actual_widget $command {{*}}$args
-                        }}
-                    }}
+                       if {{[llength [info commands widget_proxy]] == 0}} {{
+                           # Tcl code to implement a text widget proxy that disallows
+                           # insertions and deletions in regions marked with "readonly"
+                           proc widget_proxy {{actual_widget args}} {{
+                               set command [lindex $args 0]
+                               set args [lrange $args 1 end]
+                               if {{$command == "insert"}} {{
+                                   set index [lindex $args 0]
+                                   if [_is_readonly $actual_widget $index "$index+1c"] {{
+                                       bell
+                                       return ""
+                                   }}
+                                   event generate {w_} <<BeforeTextChange>>
+                                   $actual_widget $command {{*}}$args
+                                   event generate {w_} <<AfterTextChange>>
+                               }} elseif {{$command == "delete"}} {{
+                                   foreach {{index1 index2}} $args {{
+                                       if {{[_is_readonly $actual_widget $index1 $index2]}} {{
+                                           bell
+                                           return ""
+                                       }}
+                                   }}
+                                   event generate {w_} <<BeforeTextChange>>
+                                   $actual_widget $command {{*}}$args
+                                   event generate {w_} <<AfterTextChange>>
+                               }} elseif {{$command == "mark"}} {{
+                                   set arg1 [lindex $args 0]
+                                   set arg2 [lindex $args 1]
+                                   set arg3 [lindex $args 2]
+                                   if {{$arg1 == "set" && $arg2 == "insert"}} {{
+                                       if {{"fenced" in [$actual_widget tag names $arg3]}} {{
+                                           event generate {w_} <<BeforeEnteringFenced>> -data $arg3
+                                           event generate {w_} <<AfterEnteringFenced>>
+                                       }} else {{
+                                           $actual_widget $command {{*}}$args
+                                       }}
+                                   }} else {{
+                                       $actual_widget $command {{*}}$args
+                                   }} 
+                               }} else {{
+                                   $actual_widget $command {{*}}$args
+                               }}
+                           }}
 
-                    proc _is_readonly {{widget index1 index2}} {{
-                        # return true if any text in the range between
-                        # index1 and index2 has the tag "readonly"
-                        set result false
-                        if {{$index2 eq ""}} {{set index2 "$index1+1c"}}
-                        # see if "readonly" is applied to any character in the
-                        # range. There's probably a more efficient way to do this, but
-                        # this is Good Enough
-                        for {{set index $index1}} \
-                            {{[$widget compare $index < $index2]}} \
-                            {{set index [$widget index "$index+1c"]}} {{
-                                if {{"readonly" in [$widget tag names $index]}} {{
-                                    set result true
-                                    break
-                                }}
-                            }}
-                        return $result
-                    }}
-                }}
-                '''.format(w_=widget)
+                           proc _is_readonly {{widget index1 index2}} {{
+                               # return true if any text in the range between
+                               # index1 and index2 has the tag "readonly"
+                               set result false
+                               if {{$index2 eq ""}} {{set index2 "$index1+1c"}}
+                               # see if "readonly" is applied to any character in the
+                               # range. There's probably a more efficient way to do this, but
+                               # this is Good Enough
+                               for {{set index $index1}} \
+                                   {{[$widget compare $index < $index2]}} \
+                                   {{set index [$widget index "$index+1c"]}} {{
+                                       if {{"readonly" in [$widget tag names $index]}} {{
+                                           set result true
+                                           break
+                                       }}
+                                   }}
+                               return $result
+                           }}
 
+                           proc _find_range {{widget ind1}} {{
+                               set result {{}}
+                               set lis [$widget tag ranges "fenced"]
+                               foreach {{start, end}} lis {{
+                               #    if {{[$widget compare $start < $ind1]}} {{
+                               #        bell
+                               #        lappend result $start $end
+                               #        break
+                               #    }}
+                                   lappend result $start $end
+                               }} 
+                               return $result
+                           }}
+                       }}
+                       '''.format(w_=widget)
 
         # this code creates a proxy that will intercept
         # each actual insert and delete.
@@ -83,6 +122,10 @@ class Enhanced_Text(tk.Text):
         self.last_change_range = ["1.0",tk.END]
         self.selection_present=False
         self._indent_re = re.compile(r'[ \t]*')
+
+        # list of inline windows
+        self.inline_windows = []
+
         #bind the events
         self.bind_events()
 
@@ -95,6 +138,53 @@ class Enhanced_Text(tk.Text):
         self.bind('<Control-z>', self.undo)
         self.bind("<<BeforeTextChange>>", self.before_change)
         self.bind("<<AfterTextChange>>", self.after_change)
+        #self.bind("<<BeforeInsertMove>>", self.before_insert_move)
+
+
+        cmd = self._register(self._entering_fenced_callback)
+        self.tk.call("bind", str(self), "<<BeforeEnteringFenced>>", cmd + " %d")
+
+    def _entering_fenced_callback(self, data):
+        want_index = self.index(data)
+        cur_index = self.index(tk.INSERT)
+
+        l1 = cur_index.split(".")
+        cur_line = int(l1[0])
+        cur_col = l1[1]
+
+        l2 = want_index.split(".")
+        want_line = int(l2[0])
+        want_col = l2[1]
+
+        # check in which direction the insert moves and extend movement by fenced text
+        if cur_line > want_line:
+            # case up
+            fenced_start, fenced_end = self.tag_prevrange("fenced", cur_index)
+            fs = int(fenced_start.split('.')[0]) - 1
+            aim = str(fs) + "." + cur_col
+            self.mark_set(tk.INSERT, aim)
+        elif cur_line < want_line:
+            # case down
+            fenced_start, fenced_end = self.tag_nextrange("fenced", cur_index)
+            fs = int(fenced_start.split('.')[0]) + 1
+            aim = str(fs) + "." + cur_col
+            self.mark_set(tk.INSERT, aim)
+        elif cur_line == want_line:
+            if '-' in data:
+                # case left
+                fenced_start, fenced_end = self.tag_prevrange("fenced", cur_index)
+                aim = fenced_start + " - 1 char"
+                self.mark_set(tk.INSERT, aim)
+            elif '+' in data:
+                # case right
+                fenced_start, fenced_end = self.tag_nextrange("fenced", cur_index)
+                aim = fenced_end + " + 1 char"
+                self.mark_set(tk.INSERT, aim)
+        else:
+            # something wrong set index to initial target
+            self.mark_set((tk.INSERT, want_index))
+
+        return ("break")
 
     def before_change(self, event=None):
         #if there is a selection we need to store its range.
@@ -240,3 +330,10 @@ class Enhanced_Text(tk.Text):
         line = self.get(mark + " linestart", mark)
         match = self._indent_re.match(line)
         return match.end()
+
+    def index_in_range(self, index, start, end):
+        if self.compare(start, "<=", index) and self.compare(index, "<=", end):
+            return True
+        else:
+            return False
+

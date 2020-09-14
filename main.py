@@ -138,7 +138,7 @@ class MainWindow(tk.Tk):
         print("update treeview")
         self.tree_browser.update_tree(self.editor.parser.tree)
         self.editor.highlighter.highlight()
-        self.outline_browser.update_tree()
+        #self.outline_browser.update_tree()
 
     # Menu functions
     def show_right_click_menu(self, event):
