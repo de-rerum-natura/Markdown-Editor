@@ -17,20 +17,20 @@ class PPStyle():
 
         #editor styles
         self.PADDING = 100
-        self.FONT = ["Times New Roman", "14"]
+        self.FONT_FAMILY = "Times New Roman"
+        self.FONT_STANDARD_SIZE = 14
         self.FOREGROUND = 'gray36'
         self.BACKGROUND = 'white'
         self.WRAP = 'word'
+        self.TAG_COLOUR = "blue"
 
 
     def apply_style_to(self, editor):
         editor.configure(padx = self.PADDING,
-                         font = self.FONT,
+                         font = [self.FONT_FAMILY, self.FONT_STANDARD_SIZE],
                          foreground= self.FOREGROUND,
                          background= self.BACKGROUND,
-                         wrap= self.WRAP,
-                         borderwidth= 0,
-                         relief=  "flat")
+                         wrap= self.WRAP)
         self.configure_tags(editor)
 
     def configure_tags(self, editor):
@@ -40,7 +40,7 @@ class PPStyle():
         #    editor.tag_configure(style[0], style[1])
 
         #find lmargin2 for list paras
-        text_font = font.Font(family="Times New Roman", size=14)
+        text_font = font.Font(family=self.FONT_FAMILY, size=self.FONT_STANDARD_SIZE)
         list_width = text_font.measure("* ")
         blockquote_width = text_font.measure("> ")
         m_dis = text_font.measure("m")
@@ -48,49 +48,70 @@ class PPStyle():
 
         #paragraph tag
         editor.tag_configure("paragraph",
-                             font= ["Times New Roman", "14"],
-                             foreground= "gray36")
+                             font= [self.FONT_FAMILY, self.FONT_STANDARD_SIZE],
+                             foreground= self.FOREGROUND)
 
         #emphasis tags
         editor.tag_configure("emphasis",
-                             font= ["Times New Roman", "14", "italic"])
+                             font= [self.FONT_FAMILY, self.FONT_STANDARD_SIZE, "italic"])
         editor.tag_configure("strong_emphasis",
-                             font= ["Times New Roman", "14", "bold"])
+                             font= [self.FONT_FAMILY, self.FONT_STANDARD_SIZE, "bold"])
 
         # heading tags
-        editor.tag_configure("atx_heading_marker",
-                             foreground= "blue")
-        editor.tag_bind("atx_heading_marker", "<Enter>", editor.show_hand_cursor)
-        editor.tag_bind("atx_heading_marker", "<Leave>", editor.show_arrow_cursor)
-        editor.tag_bind("atx_heading_marker", "<Button-1>", editor.heading_marker_clicked)
+        editor.tag_configure("atx_heading_marker_1",
+                             foreground= self.TAG_COLOUR,
+                             spacing1=50,
+                             spacing3=20
+                             )
         editor.tag_configure("heading_content_1",
-                             font= ["Times New Roman", "28", "bold"],
+                             font= [self.FONT_FAMILY, "28", "bold"],
                              foreground= "black")
+
+        editor.tag_configure("atx_heading_marker_2",
+                             foreground=self.TAG_COLOUR,
+                             spacing1=20,
+                             spacing3=10)
         editor.tag_configure("heading_content_2",
-                             font= ["Times New Roman", "20", "bold"],
+                             font= [self.FONT_FAMILY, "20", "bold"],
                              foreground= "black")
+
+        editor.tag_configure("atx_heading_marker_3",
+                             foreground=self.TAG_COLOUR,
+                             spacing1=20,
+                             spacing3=10)
         editor.tag_configure("heading_content_3",
-                             font= ["Times New Roman", "18", "bold"],
+                             font= [self.FONT_FAMILY, "18", "bold"],
                              foreground= "black")
+
+        editor.tag_configure("atx_heading_marker_4",
+                             foreground=self.TAG_COLOUR,
+                             spacing1=20,
+                             spacing3=10)
         editor.tag_configure("heading_content_4",
-                             font=["Times New Roman", "16", "bold"],
+                             font=[self.FONT_FAMILY, "16", "bold"],
                              foreground="black")
+
+        editor.tag_configure("atx_heading_marker_5",
+                             foreground=self.TAG_COLOUR)
         editor.tag_configure("heading_content_5",
-                             font=["Times New Roman", "14", "bold"],
+                             font=[self.FONT_FAMILY, self.FONT_STANDARD_SIZE, "bold"],
                              foreground="black")
+
+        editor.tag_configure("atx_heading_marker_6",
+                             foreground=self.TAG_COLOUR)
         editor.tag_configure("heading_content_6",
-                             font=["Times New Roman", "14", "italic"],
+                             font=[self.FONT_FAMILY, self.FONT_STANDARD_SIZE, "italic"],
                              foreground="black")
 
         #thematic break tag
         editor.tag_configure("thematic_break",
-                             foreground= "blue")
+                             foreground= self.TAG_COLOUR)
 
         #Link tags
         editor.tag_configure("link_text",
-                             foreground= "blue")
+                             foreground= self.TAG_COLOUR)
         editor.tag_configure("link_destination",
-                             foreground= "blue",
+                             foreground= self.TAG_COLOUR,
                              underline = 1)
         editor.tag_bind("link_destination", "<Enter>", editor.show_hand_cursor)
         editor.tag_bind("link_destination", "<Leave>", editor.show_arrow_cursor)
@@ -109,7 +130,7 @@ class PPStyle():
                              foreground= "gray20",
                              lmargin1=50)
         editor.tag_configure("list_marker",
-                             foreground= "blue",
+                             foreground= self.TAG_COLOUR,
                              lmargin1=50)
         editor.tag_configure("list_paragraph",
                              lmargin1=50 + list_width,
@@ -143,26 +164,17 @@ class PPStyle():
                              lmargin2=50)
 
         #auto inserted text
-        editor.tag_configure("auto_inserted_code_block")
+        editor.tag_configure("auto_inserted_code_block",
+                             background= "ghost white",
+                             borderwidth=1,
+                             relief= "solid",
+                             lmargin1=50,
+                             lmargin2=50)
         editor.tag_configure("auto_inserted_list",
                              foreground='gray20',
                              background='gray92')
-
+        editor.tag_configure("auto_inserted_list_para",
+                             lmargin1=50 + list_width,
+                             lmargin2=50 + list_width)
         #elided text
         editor.tag_configure("elided", elide=True)
-
-
-#this is for testing only
-if __name__ == "__main__":
-    p = PPStyle("C:/Users/Programmieren/PycharmProjects/Editor/style.json")
-    for query in p.queries:
-        print("Query: {}".format(query))
-
-    print("Standard: {}".format(p.standard))
-
-    for style in p.styles:
-        print(style)
-
-    editor = tk.Text()
-    for style in p.styles:
-        editor.tag_configure(style[0], style[1])

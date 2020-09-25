@@ -6,11 +6,9 @@
 import tkinter as tk
 from tkinter import filedialog
 import tkinter.ttk as ttk
-from PPFileBrowser import PPFileBrowser
 from PPEditor import PPEditor
 from PPTreeBrowser import PPTreeBrowser
 from PPOutlineBrowser import PPOutlineBrowser
-from PPLineNumbers import PPLineNumbers
 from PPStyle import PPStyle
 import os
 import json
@@ -38,41 +36,35 @@ class MainWindow(tk.Tk):
         #self.editor_hsb = ttk.Scrollbar(self.left_frame, orient='horizontal', command=self.editor.xview)
         self.editor.configure(yscrollcommand=self.editor_vsb.set)
 
-        #define the Line numbers canvas
-        #self.line_numbers = PPLineNumbers(self.left_frame, self.editor, width=30, background = "white", borderwidth=0, relief="flat")
+        #define the notebook
+        self.notebook = ttk.Notebook(self)
+        self.frame_one = ttk.Frame(self.notebook)
+        self.frame_two = ttk.Frame(self.notebook)
 
-        # define file browser and editor_vsbs
-        #self.vsb = ttk.Scrollbar(self.right_frame, orient="vertical")
-        #self.hsb = ttk.Scrollbar(self.right_frame, orient="horizontal")
-        #self.file_browser = PPFileBrowser(self.right_frame, yscrollcommand=self.vsb.set, xscrollcommand=self.hsb.set)
-        #self.vsb['command'] = self.file_browser.yview
-        #self.hsb['command'] = self.file_browser.xview
-
-        #define tree brower
-        self.vsb = ttk.Scrollbar(self, orient="vertical")
-        self.hsb = ttk.Scrollbar(self, orient="horizontal")
-        self.tree_browser = PPTreeBrowser(self, yscrollcommand=self.vsb.set, xscrollcommand=self.hsb.set)
-        self.vsb['command'] = self.tree_browser.yview
-        self.hsb['command'] = self.tree_browser.xview
-
-        #define the outline browser
-        self.ovsb = ttk.Scrollbar(self, orient="vertical")
-        self.ohsb = ttk.Scrollbar(self, orient="horizontal")
-        self.outline_browser = PPOutlineBrowser(self, self.editor, yscrollcommand=self.vsb.set, xscrollcommand=self.hsb.set)
+        # define the outline browser
+        self.ovsb = ttk.Scrollbar(self.frame_two, orient="vertical")
+        self.ohsb = ttk.Scrollbar(self.frame_two, orient="horizontal")
+        self.outline_browser = PPOutlineBrowser(self.frame_two, self.editor, yscrollcommand=self.ovsb.set,
+                                                xscrollcommand=self.ohsb.set)
         self.ovsb['command'] = self.outline_browser.yview
         self.ohsb['command'] = self.outline_browser.xview
+        self.notebook.add(self.frame_two, text="Outline")
 
-        #define the label bar
-        self.status_bar_var = tk.StringVar()
-        self.status_bar = tk.Label(self, textvariable=self.status_bar_var, anchor = "w", relief=tk.RAISED)
-        self.status_bar_var.set("Test")
+        #define tree brower
+        self.tvsb = ttk.Scrollbar(self.frame_one, orient="vertical")
+        self.thsb = ttk.Scrollbar(self.frame_one, orient="horizontal")
+        self.tree_browser = PPTreeBrowser(self.frame_one, self.editor, yscrollcommand=self.tvsb.set, xscrollcommand=self.thsb.set)
+        self.tvsb['command'] = self.tree_browser.yview
+        self.thsb['command'] = self.tree_browser.xview
+        self.notebook.add(self.frame_one, text="Elements")
 
         # define menu
         self.menu = tk.Menu(self, bg=self.background, fg=self.foreground)
         self.all_menus = [self.menu]
 
-        sub_menu_items = ["file", "edit", "tools", "help"]
-        self.generate_sub_menus(sub_menu_items)
+        #sub_menu_items = ["file", "edit", "tools", "help"]
+        #self.generate_sub_menus(sub_menu_items)
+        self._generate_sub_menus()
         self.configure(menu=self.menu)
 
         self.right_click_menu = tk.Menu(self, bg=self.background, fg=self.foreground, tearoff=0)
@@ -81,6 +73,10 @@ class MainWindow(tk.Tk):
         self.right_click_menu.add_command(label='Paste', command=self.edit_paste)
         self.all_menus.append(self.right_click_menu)
 
+        #configure the grid comuns
+        self.columnconfigure(0, weight=3)
+        self.columnconfigure(2, weight=1)
+        self.rowconfigure(0, weight=1)
         # pack editor area
         #self.line_numbers.pack(side=tk.LEFT, fill=tk.Y)
         #self.editor_hsb.pack(side=tk.BOTTOM, fill=tk.X)
@@ -88,13 +84,17 @@ class MainWindow(tk.Tk):
         self.editor_vsb.grid(row=0, column=1, sticky="ns")
         self.editor.set_style()
 
-        # pack browser / tree browser area
-        self.tree_browser.grid(row=0, column=2, sticky='nsew')
-        self.vsb.grid(row=0, column=3, sticky='ns')
-        self.hsb.grid(row=1, column=2, sticky='ew')
+        # notebook outline browser / tree browser area
+        self.notebook.grid(row=0, column=2, sticky='ns')
+        self.notebook.columnconfigure(0, weight=1)
+        self.notebook.rowconfigure(0, weight=1)
+        self.outline_browser.grid(row=0, column=0, sticky='nesw')
+        self.ovsb.grid(row=0, column=1, sticky='ns')
+        self.ohsb.grid(row=1, column=0, sticky='ew')
 
-        self.status_bar.grid(row=2, column=0, sticky='ew')
-
+        self.tree_browser.grid(row=0, column=0, sticky='nesw')
+        self.tvsb.grid(row=0, column=1, sticky='ns')
+        self.thsb.grid(row=1, column=0, sticky='ew')
 
         self.bind_events()
 
@@ -106,10 +106,11 @@ class MainWindow(tk.Tk):
 
     def bind_events(self):
         self.bind("<<PPFileChosen>>", self.openFile)
-        self.bind("<<PPNodeChosen>>", self.highlight_span)
+        self.bind("<<PPOutlineNodeChosen>>", self.highlight_span)
         self.bind("<<PPEditorReparsed>>", self.update_treeview)
-        #self.bind("LineNumbers", self.line_numbers.redraw())
+
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
 
 
     def load_config(self):
@@ -131,14 +132,15 @@ class MainWindow(tk.Tk):
 
     #highlight span
     def highlight_span(self, event):
-        self.editor.highlight_span(self.tree_browser.span)
+        print("here")
+        self.editor.highlight_span(self.outline_browser.span)
 
     #update the treeview if editor reparsed content
     def update_treeview(self, event):
         print("update treeview")
         self.tree_browser.update_tree(self.editor.parser.tree)
         self.editor.highlighter.highlight()
-        #self.outline_browser.update_tree()
+        self.outline_browser.update_tree()
 
     # Menu functions
     def show_right_click_menu(self, event):
@@ -170,6 +172,30 @@ class MainWindow(tk.Tk):
 
             self.menu.add_cascade(label=item.title(), menu=sub_menu)
             self.all_menus.append(sub_menu)
+
+    def _generate_sub_menus(self):
+        file_sub_menu = tk.Menu(self.menu, tearoff=0, bg=self.background, fg=self.foreground)
+        file_sub_menu.add_command(label='New', command=self.file_new, accelerator='Ctrl+N')
+        file_sub_menu.add_command(label='Open', command=self.file_open, accelerator='Ctrl+O')
+        file_sub_menu.add_command(label='Save', command=self.file_save, accelerator='Ctrl+S')
+        file_sub_menu.add_command(label='Export', command=self.file_export, accelerator='Ctrl+E')
+        self.menu.add_cascade(label='File', menu=file_sub_menu)
+        self.all_menus.append(file_sub_menu)
+
+        edit_sub_menu = tk.Menu(self.menu, tearoff=0, bg=self.background, fg=self.foreground)
+        edit_sub_menu.add_command(label='Cut', command=self.edit_cut, accelerator='Ctrl+X')
+        edit_sub_menu.add_command(label='Copy', command=self.edit_copy, accelerator='Ctrl+C')
+        edit_sub_menu.add_command(label='Paste', command=self.edit_paste, accelerator='Ctrl+V')
+        edit_sub_menu.add_command(label='Select all', command=self.edit_select_all, accelerator='Ctrl+A')
+        edit_sub_menu.add_command(label='Find and replace', command=self.edit_find_and_replace, accelerator='Ctrl+F')
+        self.menu.add_cascade(label='Edit', menu=edit_sub_menu)
+        self.all_menus.append(edit_sub_menu)
+
+        view_sub_menu = tk.Menu(self.menu, tearoff=0, bg=self.background, fg=self.foreground)
+        view_sub_menu.add_command(label='Toggle info pane', command=self.tools_toggle_directory_pane, accelerator='Ctrl+T')
+        self.menu.add_cascade(label='View', menu=view_sub_menu)
+        self.all_menus.append(view_sub_menu)
+
 
     def openFile(self, event):
         self.open_file = self.file_browser.path
@@ -212,6 +238,20 @@ class MainWindow(tk.Tk):
             with open(current_file, 'w') as file:
                 file.write(contents)
             self.configurations['filename'] = current_file
+
+    def file_export(self, event=None):
+        """
+        Ctrl+E
+        """
+        acceptable_types = {'html', 'HTML', 'pdf', 'PDF', 'docx', 'DOCX'}
+        export_file = filedialog.asksaveasfilename(filetypes = [('Html', '*.htm'), ('Docx', '*.docx'), ('Pdf','*.pdf')])
+        if export_file:
+            ext = export_file.split('.')[-1]
+            print(ext)
+            if ext == 'hml':
+                ext = 'html'
+            if ext in acceptable_types:
+                self.editor.export(ext, export_file)
 
     def edit_cut(self, event=None):
         """

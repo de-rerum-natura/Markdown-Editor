@@ -38,12 +38,7 @@ class PPEditor(Enhanced_Text):
         self.exporter = PPExporter()
 
         #Events
-        self.bind_events()
-
-        #set the sentinel for tk.INSERT
-        self.mark_set("sentinel", tk.INSERT)
-        self.mark_gravity("sentinel", tk.LEFT)
-
+        self._bind_events()
 
         #special characters:
         self.LISTCHARS = {"*", "-", "+"}
@@ -57,31 +52,28 @@ class PPEditor(Enhanced_Text):
         #ignore insert
         self.mod_ignore=False
 
+
     def set_style(self):
         self.style.apply_style_to(self)
 
-    def bind_events(self):
-        super().bind_events()
+    def _bind_events(self):
+        super()._bind_events()
         self.bind('<Control-h>', self.highlight)
         self.bind('<Control-p>', self.print_position)
-        self.bind('<Key>', self.key_pressed)
-        self.bind('<<TextChanged>>', self.mod)
-        self.bind('<space>', self.space_pressed)
-        self.bind('<Return>', self.return_pressed)
-        self.bind('<Control-w>', self.select_word)
+        self.bind('<Key>', self._key_pressed)
+        self.bind('<<TextChanged>>', self._mod)
+        self.bind('<space>', self._space_pressed)
+        self.bind('<Return>', self._return_pressed)
+        self.bind('<Shift-Return>', self._shift_return_pressed)
+        #self.bind('<Control-w>', self.select_word)
         self.bind('<Control-e>', self.insert_emphasis)
-        #self.bind('<Control-l>', self.create_line)
-        self.bind('<Control-w>', self.export)
-        #self.bind('<KeyRelease-Return>', self.return_released)
-        self.bind("<Configure>", self._on_configure)
 
-    def export(self, event=None):
+    def export(self, type, filename):
         text = self.get('1.0', 'end')
-        self.exporter.export(text, 'docx', 'testfile.docx')
+        self.exporter.export(text, type, filename)
         print('exported')
-
         
-    def key_pressed(self, event=None):
+    def _key_pressed(self, event=None):
         if event.char in self.INLINECHARS:
             before = self.get(tk.INSERT + " -1c", tk.INSERT)
             after = self.get(tk.INSERT, tk.INSERT + " +1c")
@@ -142,7 +134,7 @@ class PPEditor(Enhanced_Text):
         self.parser.re_parse(self.get('1.0', 'end'))
         self.event_generate("<<PPEditorReparsed>>")
 
-    def space_pressed(self, event=None):
+    def _space_pressed(self, event=None):
         #delete selection, if present
         first, last = self.get_selection_indices()
         if first and last:
@@ -167,7 +159,7 @@ class PPEditor(Enhanced_Text):
         return "break"
 
 
-    def return_pressed(self, event=None):
+    def _return_pressed(self, event=None):
         #delete selection, if present
         first, last = self.get_selection_indices()
         if first and last:
@@ -176,32 +168,47 @@ class PPEditor(Enhanced_Text):
 
         #todo see whether we need to reparse here
 
+
         #if we just inserted an auto inserted text and Return is pressed immediately afterwards, delete the text again
         if 'auto_inserted_code_block' in self.tag_names(tk.INSERT + "-1c"):
-            self.tag_remove('auto_inserted_code_block', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend")
-            self.delete(tk.INSERT + " linestart", tk.INSERT)
-            self.insert(tk.INSERT, "\n")
-            self.re_parse()
-            return "break"
+            print("empty")
+            if self.is_line_empty(tk.INSERT):
+                self.tag_remove('auto_inserted_code_block', tk.INSERT + " linestart - 1c", tk.INSERT + " lineend + 1c")
+                self.delete(tk.INSERT + " linestart", tk.INSERT)
+                self.insert(tk.INSERT, "\n")
+                self.re_parse()
+                return "break"
+            else:
+                self.tag_remove('auto_inserted_code_block', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend")
 
         if 'auto_inserted_list_bullet' in self.tag_names(tk.INSERT + "-1c"):
             self.tag_remove('auto_inserted_list_bullet', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend")
             self.delete(tk.INSERT + " linestart", tk.INSERT)
             self.tag_add("list_paragraph", tk.INSERT + " linestart -1c", tk.INSERT + " lineend")
-            self.tag_add("auto_inserted_list_para", tk.INSERT + " linestart -1c", tk.INSERT + " lineend")
+            self.tag_add("auto_inserted_list_para", tk.INSERT + " linestart -1c", tk.INSERT + " lineend + 1c")
+            self.re_parse()
             return "break"
 
         if 'auto_inserted_list_para' in self.tag_names(tk.INSERT + "-1c"):
-            self.tag_remove('auto_inserted_list_para', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend")
-            self.tag_remove('list_paragraph', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend + 1c")
-            self.insert(tk.INSERT, "\n", "paragraph")
-            return "break"
+            if self.is_line_empty(tk.INSERT):
+                print("enpty")
+                self.tag_remove('auto_inserted_list_para', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend + 1c")
+                self.tag_remove('list_paragraph', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend + 1c")
+                self.insert(tk.INSERT, "\n", "paragraph")
+                self.re_parse()
+                return "break"
+            else:
+                self.tag_remove('auto_inserted_list_para', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend + 1c")
+                #self.insert(tk.INSERT, "\n")
+                #self.re_parse()
+                #return "break"
 
         if 'auto_inserted_block_quote' in self.tag_names(tk.INSERT + "-1c"):
             self.delete(tk.INSERT + " linestart", tk.INSERT)
             self.tag_remove('auto_inserted_block_quote', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend")
             self.insert(tk.INSERT, "\n", "paragraph")
             self.tag_remove('block_quote', tk.INSERT + " -1 line linestart", tk.INSERT + " lineend + 1c")
+            self.re_parse()
             return "break"
 
         #if the line contains a list_paragraph, search for the previous list marker and insert it, mark it auto_inserted
@@ -211,28 +218,36 @@ class PPEditor(Enhanced_Text):
             list_char = self.get(i1, i2)
             self.insert(tk.INSERT, "\n")
             self.insert(tk.INSERT, f"{list_char} ", ("auto_inserted_list_bullet", "lonely_list_marker"))
+            self.re_parse()
             return "break"
 
         #if the line contains a blockquote insert > in the next line
         if self._is_index_in(self.index(tk.INSERT + " -1c"), "block_quote"):
             self.insert(tk.INSERT, "\n")
             self.insert(tk.INSERT, "> ", ("auto_inserted_block_quote", "block_quote"))
+            self.re_parse()
             return "break"
 
         #if we are in an indented code block, insert the indentation of the current line in the next line
         if self.get_line_indent(tk.INSERT) >= 4:
             no_of_indent_chars = self.get_line_indent(tk.INSERT)-1
             self.insert(tk.INSERT, "\n")
-            self.insert(tk.INSERT, f"{' '*no_of_indent_chars} ", ("auto_inserted_code_block", "indented_code_block"))
+            self.insert(tk.INSERT, f"{' '*no_of_indent_chars} ")
+            self.tag_add("auto_inserted_code_block", tk.INSERT + " linestart -1c", tk.INSERT + " lineend + 1c")
+            self.re_parse()
             return "break"
 
-        #default. insert a return and reparse the document
-        self.insert(tk.INSERT, "\n")
+        #default. insert two returns and reparse the document
+        self.insert(tk.INSERT, "\n\n")
         self.re_parse()
+        self.see(tk.INSERT)
         return "break"
 
+    def _shift_return_pressed(self, event=None):
+        self.insert(tk.INSERT, "\n")
+        return "break"
 
-    def mod(self, event=None):
+    def _mod(self, event=None):
 
         if self.parser.tree != None and not self.mod_ignore:
 
@@ -258,7 +273,6 @@ class PPEditor(Enhanced_Text):
                 old_end_point=start_index,
                 new_end_point=end_index,
             )
-            #todo in input changed lines does not register the last input line if it is a para
 
     def display_file_contents(self, filepath):
         #add the parsing and highlighting of the document
@@ -269,8 +283,8 @@ class PPEditor(Enhanced_Text):
 
     def highlight_span(self, span):
         #highlight a span
-        self.tag_remove('highlight', 1.0, tk.END)
-        self.tag_add('highlight', span[0], span[1])
+        #self.tag_remove('highlight', 1.0, tk.END)
+        #self.tag_add('highlight', span[0], span[1])
         self.see(span[0])
 
     def show_hand_cursor(self, event=None):
@@ -296,49 +310,3 @@ class PPEditor(Enhanced_Text):
                 print(f"Inline link: {link_text}")
             else:
                 webbrowser.open(link_text, new=2, autoraise=True)
-
-    def heading_marker_clicked(self, event=None):
-        index = self.index(f"@{event.x}, {event.y}")
-        print(f"heading marker click at: {index}")
-
-        clicked_heading=None
-        next_heading=None
-        #todo we need a stable data structure to save the outline and be able to set and read elided also between parses
-        for item in self.highlighter.outline:
-            if clicked_heading and clicked_heading.level >= item.level:
-                next_heading = item
-                #todo if no next heading is found then it is end of text
-                break
-            elif self.index_in_range(index, item.marker_start, item.marker_end):
-                clicked_heading = item
-        if clicked_heading and next_heading:
-            if not clicked_heading.elided:
-                self.tag_add("elided", clicked_heading.marker_start + " + 1 displayline",
-                                next_heading.marker_start + " - 1 displayline")
-                clicked_heading.elided=True
-            else:
-                self.tag_remove("elided", clicked_heading.marker_start + " + 1 displayline",
-                                next_heading.marker_start + " - 1 displayline")
-
-            print(f"found: {self.get(clicked_heading.text_start, clicked_heading.text_end)}")
-            print(f"next heading: {self.get(next_heading.text_start, next_heading.text_end)}")
-
-
-    #todo parsing crashes after line insert
-    def create_line(self, index):
-        self.update_idletasks()
-        w_width = self.winfo_width() - self.style.PADDING*2
-        self.mod_ignore=True
-        l = Text_Line(w_width, index + " linestart", height=20, background="white")
-        self.inline_windows.append(l)
-        self.window_create(index + " linestart", window=l)
-        self.tag_add("readonly", index + " linestart", index + " lineend + 1c")
-        self.tag_add("fenced", index + " linestart", index + " lineend + 1c")
-        self.mod_ignore=False
-
-    #todo does not seem to be called
-    def _on_configure(self, event=None):
-        print(f"width: {event.width}")
-        for item in self.inline_windows:
-            if isinstance(item, Text_Line):
-                item.change_width(event.width - self.style.PADDING*2)

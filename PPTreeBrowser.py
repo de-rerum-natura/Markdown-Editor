@@ -7,28 +7,31 @@ Created on Aug 04 2020
 
 from tree_sitter import Language, Parser
 import tkinter.ttk as ttk
+import PPUtils
 
 
 class PPTreeBrowser(ttk.Treeview):
-    def __init__(self, master, **kwargs):
+    def __init__(self, master, editor, **kwargs):
         super().__init__(master, **kwargs)
-        self['columns'] = ("fname", "named", "start", "end", "canonical", "endbyte", "ttkID")
+        #self['columns'] = ("fname")
         #self['displaycolumns'] = "size"
-
+        self['columns'] = ("start_index", "end_index")
+        self['displaycolumns'] = ""
         self.heading("#0", text="Type", anchor='w')
-        self.heading("fname", text="FieldName", anchor='w')
-        self.heading("named", text="Named", anchor='w')
-        self.heading("start", text="Start", anchor='w')
-        self.heading("end", text="End", anchor='w')
-        self.heading("canonical", text="start byte", anchor='w')
-        self.heading("endbyte", text="end byte", anchor='w')
-        self.heading("ttkID", text="ttkID", anchor='w')
+        #self.heading("fname", text="FieldName", anchor='w')
+        #self.heading("named", text="Named", anchor='w')
+        #self.heading("start", text="Start", anchor='w')
+        #self.heading("end", text="End", anchor='w')
+        #self.heading("canonical", text="start byte", anchor='w')
+        #self.heading("endbyte", text="end byte", anchor='w')
+        #self.heading("ttkID", text="ttkID", anchor='w')
         #self.column("ttkID", stretch=0, width=50)
 
         #self.bind('<<TreeviewOpen>>', self.update_tree)
         #self.bind('<Double-Button-1>', self.change_dir)
         #self.bind("<<PPEditorReparsed>>", self.update_tree)
 
+        self.editor=editor
         self.span = ["0.0", "end"]
         self.id_counter = 0
 
@@ -47,9 +50,15 @@ class PPTreeBrowser(ttk.Treeview):
 
     def recursiveTreeWalk(self, parentID, node):
         if parentID == 0:
-            self.insert('', 0, self.node_id(node), text=node.type, values=[node.sexp(), node.is_named, self.point_convert(node.start_point), self.point_convert(node.end_point), node.start_byte, node.end_byte, self.node_id(node)])
+            #self.insert('', 0, self.node_id(node), text=node.type, values=[node.sexp(), node.is_named, self.point_convert(node.start_point), self.point_convert(node.end_point), node.start_byte, node.end_byte, self.node_id(node)])
+            start_index = PPUtils.convert_point_ts_to_tk(node.start_point)
+            end_index = PPUtils.convert_point_ts_to_tk(node.end_point)
+            self.insert('', 0, self.node_id(node), text=node.type, values=[start_index, end_index])
         else:
-            self.insert(parentID, 'end', self.node_id(node), text=node.type, values=[node.sexp(), node.is_named, self.point_convert(node.start_point), self.point_convert(node.end_point), node.start_byte, node.end_byte, self.node_id(node)])
+            #self.insert(parentID, 'end', self.node_id(node), text=node.type, values=[node.sexp(), node.is_named, self.point_convert(node.start_point), self.point_convert(node.end_point), node.start_byte, node.end_byte, self.node_id(node)])
+            start_index = PPUtils.convert_point_ts_to_tk(node.start_point)
+            end_index = PPUtils.convert_point_ts_to_tk(node.end_point)
+            self.insert(parentID, 'end', self.node_id(node), text=node.type, values=[start_index, end_index])
         if len(node.children) > 0:
             for child in node.children:
                 self.recursiveTreeWalk(self.node_id(node), child)
@@ -70,11 +79,13 @@ class PPTreeBrowser(ttk.Treeview):
 
     def node_selected(self, event):
         node = self.focus()
-        begin_pos = self.set(node, "start")
-        end_pos = self.set(node, "end")
-        self.span = [begin_pos, end_pos]
-        print(self.span)
-        self.event_generate("<<PPNodeChosen>>")
+        begin_pos = self.set(node, "start_index")
+        end_pos = self.set(node, "end_index")
+        self.editor.see(begin_pos)
+        self.editor.tag_remove('sel', '1.0', 'end')
+        self.editor.tag_add('sel', begin_pos, end_pos)
+        self.editor.mark_set("insert", end_pos)
+        self.editor.focus_set()
 
     def look_for_index(self, index):
         parent = self.root_node

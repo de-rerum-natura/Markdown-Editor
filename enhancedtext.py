@@ -2,17 +2,6 @@ from timeit import default_timer as timer
 import tkinter as tk
 import re
 
-class Text_Line(tk.Canvas):
-    def __init__(self, width, index, colour='black', *args, **kwargs):
-        tk.Canvas.__init__(self, borderwidth=0, highlightthickness=0, width=width, *args, **kwargs)
-        self.width = width
-        self.index = index
-        self.colour = colour
-        self.create_line(0,10, width, 10, fill=self.colour)
-
-    def change_width(self, width):
-        self.configure(width=width)
-        self.create_line(0,10,width,10, fill=self.colour)
 
 class Enhanced_Text(tk.Text):
     '''A text widget that doesn't permit inserts and deletes in regions tagged with "readonly"'''
@@ -102,12 +91,8 @@ class Enhanced_Text(tk.Text):
                        }}
                        '''.format(w_=widget)
 
-        # this code creates a proxy that will intercept
-        # each actual insert and delete.
+        # create the proxy and replace the tk widget
         self.tk.eval(WIDGET_PROXY)
-
-        # this code replaces the low level tk widget
-        # with the proxy
         self.tk.eval('''
             rename {widget} _{widget}
             interp alias {{}} ::{widget} {{}} widget_proxy _{widget}
@@ -123,23 +108,18 @@ class Enhanced_Text(tk.Text):
         self.selection_present=False
         self._indent_re = re.compile(r'[ \t]*')
 
-        # list of inline windows
-        self.inline_windows = []
-
         #bind the events
-        self.bind_events()
+        self._bind_events()
 
-    def bind_events(self):
+    def _bind_events(self):
         self.bind('<Control-a>', self.select_all)
         self.bind('<Control-c>', self.copy)
         self.bind('<Control-v>', self.paste)
         self.bind('<Control-x>', self.cut)
         self.bind('<Control-y>', self.redo)
         self.bind('<Control-z>', self.undo)
-        self.bind("<<BeforeTextChange>>", self.before_change)
-        self.bind("<<AfterTextChange>>", self.after_change)
-        #self.bind("<<BeforeInsertMove>>", self.before_insert_move)
-
+        self.bind("<<BeforeTextChange>>", self._before_change)
+        self.bind("<<AfterTextChange>>", self._after_change)
 
         cmd = self._register(self._entering_fenced_callback)
         self.tk.call("bind", str(self), "<<BeforeEnteringFenced>>", cmd + " %d")
@@ -186,7 +166,7 @@ class Enhanced_Text(tk.Text):
 
         return ("break")
 
-    def before_change(self, event=None):
+    def _before_change(self, event=None):
         #if there is a selection we need to store its range.
         t_range = self.tag_ranges("sel")
         if t_range:
@@ -198,7 +178,7 @@ class Enhanced_Text(tk.Text):
             self.last_change_range[0] = self.index(tk.INSERT)
             self.selection_present=False
 
-    def after_change(self, event=None):
+    def _after_change(self, event=None):
         #if there was a selection use it. Otherwise store insert mark after insertion/deletion event
         if not self.selection_present:
             self.last_change_range[1] = self.index(tk.INSERT)
@@ -282,32 +262,26 @@ class Enhanced_Text(tk.Text):
 
     def cut(self, event=None):
         self.event_generate("<<Cut>>")
-
         return "break"
 
     def copy(self, event=None):
         self.event_generate("<<Copy>>")
-
         return "break"
 
     def paste(self, event=None):
         self.event_generate("<<Paste>>")
-
         return "break"
 
     def undo(self, event=None):
         self.event_generate("<<Undo>>")
-
         return "break"
 
     def redo(self, event=None):
         self.event_generate("<<Redo>>")
-
         return "break"
 
     def select_all(self, event=None):
         self.tag_add("sel", 1.0, tk.END)
-
         return "break"
 
     def display_file_contents(self, filepath):
@@ -327,12 +301,23 @@ class Enhanced_Text(tk.Text):
         return True
 
     def get_line_indent(self, mark):
+        " returns an integer representing the number of whitespaces at the beginning of the line"
         line = self.get(mark + " linestart", mark)
         match = self._indent_re.match(line)
         return match.end()
 
     def index_in_range(self, index, start, end):
         if self.compare(start, "<=", index) and self.compare(index, "<=", end):
+            return True
+        else:
+            return False
+
+    def is_line_empty(self, mark):
+        "returns True if column of lineend = 0 (no char in line) or if the column is equal to the indent (only whitespaces in the line)"
+        col = self.col_in_index(mark + " lineend")
+        if  col == 0:
+            return True
+        elif col == self.get_line_indent(mark):
             return True
         else:
             return False
