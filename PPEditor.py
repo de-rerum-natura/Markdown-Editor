@@ -10,14 +10,15 @@ import re
 from PPParser import PPParser
 from PPHighlighter import PPHighlighter
 import PPUtils as my_utils
-from PPStyle import PPStyle
+from PPEditorStyle import PPEditorStyle
+from PPCodeStyle import PPCodeStyle
 from enhancedtext import *
 import webbrowser
 from PPExporter import PPExporter
 
 class PPEditor(Enhanced_Text):
-    def __init__(self, master, style_path, **kwargs):
-        super().__init__(master, **kwargs)
+    def __init__(self, master, style, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
         
         self.master = master
 
@@ -27,12 +28,10 @@ class PPEditor(Enhanced_Text):
         #Parser
         self.parser = PPParser()
 
-        #Style
-        # read in the style and configure the standard style of the editor as well as the highlight tags
-        self.style = PPStyle(style_path)
-
-        #Highlighter
-        self.highlighter = PPHighlighter(self,self.style.queries)
+        #Style and Highlighter
+        self.style = style
+        self.highlighter = PPHighlighter(self, self.style.queries)
+        self.style.apply_style_to(self)
 
         #Exporter
         self.exporter = PPExporter()
@@ -53,8 +52,11 @@ class PPEditor(Enhanced_Text):
         self.mod_ignore=False
 
 
-    def set_style(self):
+    def set_style(self, style):
+        self.style = style
+        self.highlighter = PPHighlighter(self, self.style.queries)
         self.style.apply_style_to(self)
+        self.highlight()
 
     def _bind_events(self):
         super()._bind_events()
@@ -132,6 +134,10 @@ class PPEditor(Enhanced_Text):
 
     def re_parse(self):
         self.parser.re_parse(self.get('1.0', 'end'))
+        self.event_generate("<<PPEditorReparsed>>")
+
+    def _full_parse(self):
+        self.parser.parse(self.get('1.0', 'end'))
         self.event_generate("<<PPEditorReparsed>>")
 
     def _space_pressed(self, event=None):
@@ -216,6 +222,13 @@ class PPEditor(Enhanced_Text):
             i1, i2 = self.tag_prevrange('list_marker',tk.INSERT, '1.0')
             #print(f"List maker: {i1}, {i2}")
             list_char = self.get(i1, i2)
+            #if numbered increase number
+            if len(list_char)>1:
+                m = re.search(r"\d+", list_char)
+                if m:
+                    l_int = int(m.group())
+                    l_int +=1
+                    list_char = f"{l_int}."
             self.insert(tk.INSERT, "\n")
             self.insert(tk.INSERT, f"{list_char} ", ("auto_inserted_list_bullet", "lonely_list_marker"))
             self.re_parse()
@@ -249,7 +262,11 @@ class PPEditor(Enhanced_Text):
 
     def _mod(self, event=None):
 
-        if self.parser.tree != None and not self.mod_ignore:
+        if not self.parser.tree:
+            self._full_parse()
+            return
+
+        if not self.mod_ignore:
 
             start_index = my_utils.convert_point_tk_to_ts(self.last_change_range[0])
             end_index = my_utils.convert_point_tk_to_ts(self.last_change_range[1])

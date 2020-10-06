@@ -1,6 +1,6 @@
 from tree_sitter import *
 from tkinter import font
-from PPStyle import *
+from PPEditorStyle import *
 import PPUtils
 
 

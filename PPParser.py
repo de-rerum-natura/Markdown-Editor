@@ -114,5 +114,16 @@ class PPParser:
             to_visit.extend(current.children)
         return visited
 
+    def tree_iter(self):
+        to_visit = deque([self.tree.root_node])
+        visited = []
+
+        while to_visit:
+            current = to_visit.popleft()
+            if current in visited:
+                continue
+            visited.append(current)
+            yield current
+            to_visit.extend(current.children)
 
 

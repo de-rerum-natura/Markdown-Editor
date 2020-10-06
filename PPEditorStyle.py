@@ -3,18 +3,33 @@ import tkinter as tk
 from tkinter import font
 
 
-class PPStyle():
-    def __init__(self, path):
-        with open(path, 'r') as f:
-            file_content = json.load(f)
-        #the first list is the tree sitter queries
-        self.queries = file_content[0]
-        #the second list is styles - this is replaced with hardcoding due to bindings
-        #self.styles = file_content[1]
-        #first item in the styles list is the standard style
-        #self.editor_style = self.styles.pop(0)[1]
-        #self.standard = self.styles.pop(0)[1]
+QUERIES = [
+  "(document (paragraph) @paragraph)",
+  "(atx_heading (atx_heading_marker) @atx_heading_marker (*(text)) @heading_content)",
+  "((thematic_break) @thematic_break)",
+  "((tight_list) @tight_list)",
+  "((loose_list) @loose_list)",
+  "(tight_list (list_item (list_marker) @lonely_list_marker))",
+  "(tight_list (list_item (list_marker) @list_marker (*(text)) @list_paragraph))",
+  "(loose_list (list_item (list_marker) @list_marker (*(text)) @list_paragraph))",
+  "(link (link_text (text) @link_text))",
+  "(link (link_text (text) @link_text) (link_destination (text) @link_destination))",
+  "(link (link_text (text) @link_text) (link_destination (text) @link_destination) (link_title (text)) @link_title)",
+  "(uri_autolink (text) @link_destination)",
+  "((strong_emphasis) @strong_emphasis)",
+  "((block_quote) @block_quote)",
+  "(block_quote (block_quote (*(text))) @block_block_quote)",
+  "((emphasis) @emphasis)",
+  "((code_span) @code_span)",
+  "((indented_code_block) @indented_code_block)",
+  "((fenced_code_block) @fenced_code_block)"
+]
+class PPEditorStyle():
+    def __init__(self):
+        #with open(path, 'r') as f:
+        #    file_content = json.load(f)
 
+        self.queries = QUERIES
         #editor styles
         self.PADDING = 100
         self.FONT_FAMILY = "Times New Roman"
@@ -23,6 +38,7 @@ class PPStyle():
         self.BACKGROUND = 'white'
         self.WRAP = 'word'
         self.TAG_COLOUR = "blue"
+
 
 
     def apply_style_to(self, editor):

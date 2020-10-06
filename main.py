@@ -9,7 +9,8 @@ import tkinter.ttk as ttk
 from PPEditor import PPEditor
 from PPTreeBrowser import PPTreeBrowser
 from PPOutlineBrowser import PPOutlineBrowser
-from PPStyle import PPStyle
+from PPEditorStyle import PPEditorStyle
+from PPCodeStyle import PPCodeStyle
 import os
 import json
 
@@ -30,33 +31,51 @@ class MainWindow(tk.Tk):
         self.open_file = ''
         self.right_frame_visible = True
 
+        #define styles:
+        self.editor_style = PPEditorStyle()
+        self.code_style = PPCodeStyle()
+
+        #define the paned window
+        self.panes = tk.PanedWindow()
+        self.panes.pack(fill=tk.BOTH, expand=1)
+
         # define editor area and scrollbars
-        self.editor = PPEditor(self, 'style.json')
-        self.editor_vsb = ttk.Scrollbar(self, orient='vertical', command=self.editor.yview)
-        #self.editor_hsb = ttk.Scrollbar(self.left_frame, orient='horizontal', command=self.editor.xview)
+        self.editor_frame = tk.Frame()
+        self.editor = PPEditor(self.editor_frame, self.code_style)
+        self.editor_vsb = ttk.Scrollbar(self.editor_frame, orient='vertical', command=self.editor.yview)
         self.editor.configure(yscrollcommand=self.editor_vsb.set)
 
-        #define the notebook
+        self.editor.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        self.editor_vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.panes.add(self.editor_frame)
+        # define the notebook
+
         self.notebook = ttk.Notebook(self)
         self.frame_one = ttk.Frame(self.notebook)
         self.frame_two = ttk.Frame(self.notebook)
 
         # define the outline browser
         self.ovsb = ttk.Scrollbar(self.frame_two, orient="vertical")
-        self.ohsb = ttk.Scrollbar(self.frame_two, orient="horizontal")
-        self.outline_browser = PPOutlineBrowser(self.frame_two, self.editor, yscrollcommand=self.ovsb.set,
-                                                xscrollcommand=self.ohsb.set)
+        self.outline_browser = PPOutlineBrowser(self.frame_two, self.editor, yscrollcommand=self.ovsb.set)
         self.ovsb['command'] = self.outline_browser.yview
-        self.ohsb['command'] = self.outline_browser.xview
         self.notebook.add(self.frame_two, text="Outline")
 
-        #define tree brower
+        # define tree brower
         self.tvsb = ttk.Scrollbar(self.frame_one, orient="vertical")
-        self.thsb = ttk.Scrollbar(self.frame_one, orient="horizontal")
-        self.tree_browser = PPTreeBrowser(self.frame_one, self.editor, yscrollcommand=self.tvsb.set, xscrollcommand=self.thsb.set)
+        self.tree_browser = PPTreeBrowser(self.frame_one, self.editor, yscrollcommand=self.tvsb.set)
         self.tvsb['command'] = self.tree_browser.yview
-        self.thsb['command'] = self.tree_browser.xview
         self.notebook.add(self.frame_one, text="Elements")
+
+        # notebook outline browser / tree browser area
+
+        self.ovsb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.outline_browser.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+        self.tvsb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree_browser.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+
+        self.panes.add(self.notebook)
+
 
         # define menu
         self.menu = tk.Menu(self, bg=self.background, fg=self.foreground)
@@ -73,29 +92,6 @@ class MainWindow(tk.Tk):
         self.right_click_menu.add_command(label='Paste', command=self.edit_paste)
         self.all_menus.append(self.right_click_menu)
 
-        #configure the grid comuns
-        self.columnconfigure(0, weight=3)
-        self.columnconfigure(2, weight=1)
-        self.rowconfigure(0, weight=1)
-        # pack editor area
-        #self.line_numbers.pack(side=tk.LEFT, fill=tk.Y)
-        #self.editor_hsb.pack(side=tk.BOTTOM, fill=tk.X)
-        self.editor.grid(row=0, column=0, sticky="nsew")
-        self.editor_vsb.grid(row=0, column=1, sticky="ns")
-        self.editor.set_style()
-
-        # notebook outline browser / tree browser area
-        self.notebook.grid(row=0, column=2, sticky='ns')
-        self.notebook.columnconfigure(0, weight=1)
-        self.notebook.rowconfigure(0, weight=1)
-        self.outline_browser.grid(row=0, column=0, sticky='nesw')
-        self.ovsb.grid(row=0, column=1, sticky='ns')
-        self.ohsb.grid(row=1, column=0, sticky='ew')
-
-        self.tree_browser.grid(row=0, column=0, sticky='nesw')
-        self.tvsb.grid(row=0, column=1, sticky='ns')
-        self.thsb.grid(row=1, column=0, sticky='ew')
-
         self.bind_events()
 
         #if a file is saved in config, load it into the editor
@@ -108,10 +104,12 @@ class MainWindow(tk.Tk):
         self.bind("<<PPFileChosen>>", self.openFile)
         self.bind("<<PPOutlineNodeChosen>>", self.highlight_span)
         self.bind("<<PPEditorReparsed>>", self.update_treeview)
-
+        self.bind("<Control-i>", self.insert_unicode)
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
 
+    def insert_unicode(self, event=None):
+        self.editor.insert(tk.INSERT, u"\u2502")
 
     def load_config(self):
         configurations = {}
@@ -141,6 +139,7 @@ class MainWindow(tk.Tk):
         self.tree_browser.update_tree(self.editor.parser.tree)
         self.editor.highlighter.highlight()
         self.outline_browser.update_tree()
+
 
     # Menu functions
     def show_right_click_menu(self, event):
@@ -192,7 +191,8 @@ class MainWindow(tk.Tk):
         self.all_menus.append(edit_sub_menu)
 
         view_sub_menu = tk.Menu(self.menu, tearoff=0, bg=self.background, fg=self.foreground)
-        view_sub_menu.add_command(label='Toggle info pane', command=self.tools_toggle_directory_pane, accelerator='Ctrl+T')
+        view_sub_menu.add_command(label='Editor Style', command=self.tools_editor_style)
+        view_sub_menu.add_command(label='Code Style', command=self.tools_code_style)
         self.menu.add_cascade(label='View', menu=view_sub_menu)
         self.all_menus.append(view_sub_menu)
 
@@ -248,7 +248,7 @@ class MainWindow(tk.Tk):
         if export_file:
             ext = export_file.split('.')[-1]
             print(ext)
-            if ext == 'hml':
+            if ext == 'htm':
                 ext = 'html'
             if ext in acceptable_types:
                 self.editor.export(ext, export_file)
@@ -289,16 +289,11 @@ class MainWindow(tk.Tk):
         """
         # self.show_about_page()
 
-    def tools_toggle_directory_pane(self, event=None):
-        """
-        Ctrl+M
-        """
-        if self.right_frame_visible:
-            self.right_frame_visible = False
-            self.right_frame.pack_forget()
-        else:
-            self.right_frame_visible = True
-            self.right_frame.pack(side=tk.RIGHT, fill=tk.Y)
+    def tools_editor_style(self, event=None):
+        self.editor.set_style(self.editor_style)
+
+    def tools_code_style(self, event=None):
+        self.editor.set_style(self.code_style)
 
     def on_closing(self):
         self.save_config()
