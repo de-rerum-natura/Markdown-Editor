@@ -4,7 +4,7 @@ import re
 
 
 class Enhanced_Text(tk.Text):
-    '''A text widget that doesn't permit inserts and deletes in regions tagged with "readonly"'''
+    '''text widget adding readonly and no-entry regions to the tk Text widget. Many ideas taken from publications by Bryan Oakley at Stack Overflow'''
     def __init__(self, *args, **kwargs):
         tk.Text.__init__(self, *args, **kwargs)
 
