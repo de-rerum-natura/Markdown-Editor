@@ -4,7 +4,7 @@ import re
 
 
 class Enhanced_Text(tk.Text):
-    '''text widget adding readonly and no-entry regions to the tk Text widget. Many ideas taken from publications by Bryan Oakley at Stack Overflow'''
+    '''text widget adding readonly and no-entry regions and other utility functions to the tk Text widget. Many ideas taken from publications by Bryan Oakley at Stack Overflow'''
     def __init__(self, *args, **kwargs):
         tk.Text.__init__(self, *args, **kwargs)
 
@@ -223,43 +223,6 @@ class Enhanced_Text(tk.Text):
         except tk.TclError:
             return None, None
 
-
-    def find(self, text_to_find):
-        length = tk.IntVar()
-        idx = self.search(text_to_find, self.find_search_starting_index, stopindex=tk.END, count=length)
-
-        if idx:
-            self.tag_remove('find_match', 1.0, tk.END)
-
-            end = f'{idx}+{length.get()}c'
-            self.tag_add('find_match', idx, end)
-            self.see(idx)
-
-            self.find_search_starting_index = end
-            self.find_match_index = idx
-        else:
-            if self.find_match_index != 1.0:
-                if msg.askyesno("No more results", "No further matches. Repeat from the beginning?"):
-                    self.find_search_starting_index = 1.0
-                    self.find_match_index = None
-                    return self.find(text_to_find)
-            else:
-                msg.showinfo("No Matches", "No matching text found")
-
-    def replace_text(self, target, replacement):
-        if self.find_match_index:
-            current_found_index_line = str(self.find_match_index).split('.')[0]
-
-            end = f"{self.find_match_index}+{len(target)}c"
-            self.replace(self.find_match_index, end, replacement)
-
-            self.find_search_starting_index = current_found_index_line + '.0'
-
-    def cancel_find(self):
-        self.find_search_starting_index = 1.0
-        self.find_match_index = None
-        self.tag_remove('find_match', 1.0, tk.END)
-
     def cut(self, event=None):
         self.event_generate("<<Cut>>")
         return "break"
@@ -313,7 +276,7 @@ class Enhanced_Text(tk.Text):
             return False
 
     def is_line_empty(self, mark):
-        "returns True if column of lineend = 0 (no char in line) or if the column is equal to the indent (only whitespaces in the line)"
+        '''returns True if column of lineend = 0 (no char in line) or if the column is equal to the indent (only whitespaces in the line)'''
         col = self.col_in_index(mark + " lineend")
         if  col == 0:
             return True
